@@ -8,7 +8,7 @@ def grayscale(image):
         return rgb2gray(image)
     return image
 
-def sobel(axis, image, axis, directional=False, threshold=(20, 100), kernel=3):
+def sobel(image, axis='x', directional=False, threshold=(20, 100), kernel=3):
     gray = grayscale(image)
     s = None
     if not directional:
