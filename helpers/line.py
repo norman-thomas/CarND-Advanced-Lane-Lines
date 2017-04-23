@@ -1,6 +1,9 @@
 import numpy as np
 import cv2
 import math
+import matplotlib.pyplot as plt
+
+from scipy.optimize import curve_fit
 
 from .color import histogram, find_maximum
 
@@ -29,7 +32,7 @@ class Line():
 
 
 def circle(x, xc, yc, r):
-    return math.sqrt(r**2 - (x-xc)**2) + yc
+    return np.sqrt(r*r - (x-xc)*(x-xc)) + yc
 
 def quadratic(x, a, b, c):
     return a*x**2 + b*x + c
@@ -37,6 +40,8 @@ def quadratic(x, a, b, c):
 class LaneSearch:
 
     def __init__(self, window_count=9, window_width=100, initial_fraction=4):
+        self._image = None
+        self._draw_image = None
         self._initial_fraction = initial_fraction
         self._window_count = window_count
         self._window_width = window_width
@@ -79,8 +84,8 @@ class LaneSearch:
         def _is_tolerable(val, previous_val, skipped):
             return val is not None and abs(val - previous_val) <= _tolerance(skipped)
 
-        def _tolerance(skipped):
-            return (1+skipped) * self._window_width//2
+        def _tolerance(skipped, margin=None):
+            return (1+skipped) * (self._window_width//2 if margin is None else margin)
 
         def _draw_rectangle(x, y_from, y_to, found=True, delta=None):
             delta = delta if delta is not None else self._window_width//2
@@ -158,9 +163,9 @@ class LaneSearch:
                 right_skipped += 1
 
             if draw:
-                delta = _tolerance(left_skipped)
+                delta = _tolerance(left_skipped, margin)
                 _draw_rectangle(previous_left, from_, to_, left_skipped == 0, delta=delta)
-                delta = _tolerance(right_skipped)
+                delta = _tolerance(right_skipped, margin)
                 _draw_rectangle(previous_right, from_, to_, right_skipped == 0, delta=delta)
 
         left_centroids = np.array(left_centroids)
@@ -169,8 +174,55 @@ class LaneSearch:
             cv2.polylines(self._draw_image, [left_centroids], False, (0,255,0), thickness=15)
             cv2.polylines(self._draw_image, [right_centroids], False, (0,0,255), thickness=15)
 
-        # TODO self._history.append()
+        # calc polynomial
+        funcs = self._fit(left_centroids, right_centroids)
+        if draw:
+            pass
+
         return left_centroids, right_centroids
+
+    def _draw_curve(func, params):
+        height, width = self.image.shape
+        ys = np.linspace(0, height-1, 3)
+        xs = np.array([func(y, *params) for y in ys])
+        points = zip(xs, ys)
+        #skimage.draw.circle()
+
+    def _fit(self, left_centroids, right_centroids):
+        left_xs = [p[0] for p in left_centroids]
+        left_ys = [p[1] for p in left_centroids]
+        right_xs = [p[0] for p in right_centroids]
+        right_ys = [p[1] for p in right_centroids]
+        left_func = self._fit_function(left_xs, left_ys)
+        right_func = self._fit_function(right_xs, right_ys)
+        print(left_func, '---', right_func)
+
+        #left_circle = self._fit_circle(left_xs, left_ys)
+        #right_circle = self._fit_circle(right_xs, right_ys)
+        #print(left_circle, '---', right_circle)
+
+        confidence = 1
+        # TODO do sanity checks
+        horizontal_space = right_func[-1] - left_func[-1]
+        if not(700 < horizontal_space < 850):
+            confidence *= 0.9
+
+        # TODO stronger preference for side with more valid entries
+        point_difference = len(left_centroids) - len(right_centroids)
+        prio1, prio2 = left_func, right_func if point_difference >= 0 else right_func, left_func
+        
+
+        self._history.append((left_func, right_func))
+        return left_func, right_func
+
+
+    @staticmethod
+    def _fit_function(xs, ys):
+        return np.polyfit(ys, xs, 2)
+
+    @staticmethod
+    def _fit_circle(xs, ys):
+        return curve_fit(circle, ys, xs)
 
 
     def _search_smart(self, history, draw=False):
