@@ -3,6 +3,7 @@ import cv2
 import math
 import matplotlib.pyplot as plt
 
+from collections import namedtuple
 from scipy.optimize import curve_fit
 
 from .color import histogram, find_maximum
@@ -31,11 +32,27 @@ class Line():
         self.ally = None
 
 
+Lane = namedtuple('Lane', ['num', 'detected', 'coeffs', 'func'])
+class LaneClass:
+    def __init__(self):
+        self.num = -1
+        self.detected = False
+        self.coeffs = None
+
 def circle(x, xc, yc, r):
     return np.sqrt(r*r - (x-xc)*(x-xc)) + yc
 
 def quadratic(x, a, b, c):
-    return a*x**2 + b*x + c
+    return a*(x + b)**2 + c
+
+def _create_func(a, b, c):
+    def _quadratic(x):
+        return quadratic(x, a, b, c)
+    return _quadratic
+
+def _transform_quadratic(a, b, c):
+    '''transforms the polynomial a*x^2 + b*x + c into the form a * (x + b)^2 + c'''
+    return (a, b/(2*a), (c - b**2/(4*a)))
 
 class LaneSearch:
 
@@ -47,6 +64,7 @@ class LaneSearch:
         self._window_width = window_width
         self._history = []
         self._threshold = 300
+        self._count = 0
 
     @property
     def image(self):
@@ -67,6 +85,10 @@ class LaneSearch:
     @property
     def window_size(self):
         return self.window_height, self._window_width
+
+    @property
+    def lane_distance(self):
+        return 725
 
     def search(self, frame, history=None, draw=False):
         self._image = frame
@@ -176,44 +198,74 @@ class LaneSearch:
 
         # calc polynomial
         funcs = self._fit(left_centroids, right_centroids)
-        if draw:
-            pass
 
-        return left_centroids, right_centroids
-
-    def _draw_curve(func, params):
-        height, width = self.image.shape
-        ys = np.linspace(0, height-1, 3)
-        xs = np.array([func(y, *params) for y in ys])
-        points = zip(xs, ys)
-        #skimage.draw.circle()
+        self._count += 1
+        return funcs
 
     def _fit(self, left_centroids, right_centroids):
-        left_xs = [p[0] for p in left_centroids]
-        left_ys = [p[1] for p in left_centroids]
-        right_xs = [p[0] for p in right_centroids]
-        right_ys = [p[1] for p in right_centroids]
-        left_func = self._fit_function(left_xs, left_ys)
-        right_func = self._fit_function(right_xs, right_ys)
-        print(left_func, '---', right_func)
+        f_l, f_r = None, None
+        if len(left_centroids) >= 3:
+            left_xs = [p[0] for p in left_centroids]
+            left_ys = [p[1] for p in left_centroids]
+            left_func = self._fit_function(left_xs, left_ys)
+            f_l = _transform_quadratic(*left_func) if left_func is not None else None
+        if len(right_centroids) >= 3:
+            right_xs = [p[0] for p in right_centroids]
+            right_ys = [p[1] for p in right_centroids]
+            right_func = self._fit_function(right_xs, right_ys)
+            f_r = _transform_quadratic(*right_func) if right_func is not None else None
 
-        #left_circle = self._fit_circle(left_xs, left_ys)
-        #right_circle = self._fit_circle(right_xs, right_ys)
-        #print(left_circle, '---', right_circle)
+        print('f_l = {}\nf_r = {}'.format(f_l, f_r))
 
+        left = None
+        right = None
         confidence = 1
-        # TODO do sanity checks
-        horizontal_space = right_func[-1] - left_func[-1]
-        if not(700 < horizontal_space < 850):
-            confidence *= 0.9
+        if f_l is not None and f_r is not None:
+            horizontal_space = f_r[-1] - f_l[-1]
+            if not(700 < horizontal_space < 850):
+                confidence *= 0.8
 
-        # TODO stronger preference for side with more valid entries
-        point_difference = len(left_centroids) - len(right_centroids)
-        prio1, prio2 = left_func, right_func if point_difference >= 0 else right_func, left_func
-        
+            # compare the scale of the quadratic coefficients
+            p1c2 = math.log10(abs(f_l[0]))
+            p2c2 = math.log10(abs(f_r[0]))
+            coeff_diff = p1c2 / p2c2
+            if not(0.75 < coeff_diff < 1.25):
+                confidence *= 0.7
 
-        self._history.append((left_func, right_func))
-        return left_func, right_func
+            if confidence < 0.7:
+                # stronger preference for side with more valid entries
+                if len(left_centroids) >= len(right_centroids):
+                    f_r = f_l.copy()
+                    f_r[2] += self.lane_distance
+                else:
+                    f_l = f_r.copy()
+                    f_l[2] -= self.lane_distance
+            left = Lane(self._count, True, f_l, _create_func(*f_l))
+            right = Lane(self._count, True, f_r, _create_func(*f_r))
+        elif f_l is not None:
+            f_r = f_l.copy()
+            f_r[2] += self.lane_distance
+            left = Lane(self._count, True, f_l, _create_func(*f_l))
+            right = Lane(self._count, False, f_r, _create_func(*f_r))
+        elif f_r is not None:
+            f_l = f_r.copy()
+            f_l[2] -= self.lane_distance
+            left = Lane(self._count, False, f_l, _create_func(*f_l))
+            right = Lane(self._count, True, f_r, _create_func(*f_r))
+        else:
+            left = Lane(self._count, False, None)
+            right = Lane(self._count, False, None)
+
+        self._history.append((left, right))
+        left, right = self._find_last_detected()
+        return left, right
+
+    def _find_last_detected(self):
+        r = []
+        for i in range(2):
+            last = list(filter(lambda f: f[i].detected, self._history))[-1]
+            r.append(last[i].func)
+        return r
 
 
     @staticmethod
