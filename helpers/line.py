@@ -36,13 +36,11 @@ def quadratic(x, a, b, c):
 
 class LaneSearch:
 
-    def __init__(self, image, window_count=9, window_width=100, initial_fraction=4):
-        self._image = image
-        self._draw_image = np.dstack((image, image, image)) * 255
+    def __init__(self, window_count=9, window_width=100, initial_fraction=4):
         self._initial_fraction = initial_fraction
         self._window_count = window_count
-        if image.shape[0] % window_count != 0:
-            raise ValueError('{} mod {} != 0'.format(image.shape[0], window_count))
+        self._window_width = window_width
+        self._history = []
 
     @property
     def image(self):
@@ -64,11 +62,9 @@ class LaneSearch:
     def window_size(self):
         return self.window_height, self._window_width
 
-    @property
-    def tolerance(self):
-        return 1 / self.window_count
-
-    def search(self, smart=False, history=None, draw=False):
+    def search(self, frame, smart=False, history=None, draw=False):
+        self._image = frame
+        self._draw_image = np.dstack((frame, frame, frame)) * 255 if draw else None
         if smart:
             return self._search_smart(history, draw=draw)
         else:
@@ -82,7 +78,7 @@ class LaneSearch:
 
     def _search_dumb(self, draw=False):
         def _is_tolerable(val, previous_val, skipped):
-            return (abs(val - previous_val) / previous_val) ** (1/(1+skipped)) <= self.tolerance
+            return abs(val - previous_val) <= (1+skipped) * self._window_width//2
 
         height = self.image.shape[0]
         hist = histogram(self.image, from_=int(height * (1 - 1/self._initial_fraction)))
@@ -120,6 +116,8 @@ class LaneSearch:
         if draw:
             cv2.polylines(self._draw_image, [left_centroids], False, (0,255,0), thickness=15)
             cv2.polylines(self._draw_image, [right_centroids], False, (0,0,255), thickness=15)
+
+        # TODO self._history.append()
         return left_centroids, right_centroids
 
 
