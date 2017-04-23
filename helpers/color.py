@@ -25,17 +25,13 @@ def combine_thresholds(*binaries):
         result[binary == 1] = 1
     return result
 
-def find_maximums(hist):
-    def _find_max(arr):
-        start = np.argmax(arr)
-        end = start
-        while end < len(arr) and arr[end] >= arr[start]:
-            end += 1
-        end -= 1
-        return (start + end) // 2
-
-    half = len(hist) // 2
-    return _find_max(hist[:half]), _find_max(hist[half:]) + half
+def find_maximum(arr):
+    start = np.argmax(arr)
+    end = start
+    while end < len(arr) and arr[end] >= arr[start]:
+        end += 1
+    end -= 1
+    return (start + end) // 2
 
 def histogram(img, from_=None, to=None):
     height, width = img.shape

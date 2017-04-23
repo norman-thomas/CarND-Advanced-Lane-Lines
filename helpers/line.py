@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import math
 
-from .color import histogram, find_maximums
+from .color import histogram, find_maximum
 
 class Line():
     def __init__(self):
@@ -41,6 +41,7 @@ class LaneSearch:
         self._window_count = window_count
         self._window_width = window_width
         self._history = []
+        self._threshold = 300
 
     @property
     def image(self):
@@ -62,17 +63,21 @@ class LaneSearch:
     def window_size(self):
         return self.window_height, self._window_width
 
-    def search(self, frame, smart=False, history=None, draw=False):
+    def search(self, frame, history=None, draw=False):
         self._image = frame
         self._draw_image = np.dstack((frame, frame, frame)) * 255 if draw else None
-        if smart:
-            return self._search_smart(history, draw=draw)
-        else:
-            return self._search_dumb(draw=draw)
+        
+        result = self._search_smart(history, draw=draw)
+        if result is None:
+            result = self._search_dumb(draw=draw)
+        if result is None:
+            # fallback
+            pass
+        return result
 
     def _search_dumb(self, draw=False):
         def _is_tolerable(val, previous_val, skipped):
-            return abs(val - previous_val) <= _tolerance(skipped)
+            return val is not None and abs(val - previous_val) <= _tolerance(skipped)
 
         def _tolerance(skipped):
             return (1+skipped) * self._window_width//2
@@ -86,12 +91,36 @@ class LaneSearch:
             color = (255, 0, 0) if not found else (0, 255, 0)
             cv2.rectangle(self._draw_image, (p1x, y_from), (p2x, y_to), color=color, thickness=6)
 
+        def _convolve(y1, y2, prev_l, prev_r, l_margin, r_margin):
+            height, width = self.image.shape
+            offset = self._window_width//2
+            s = np.sum(self.image[y1:y2, :], axis=0)
+            window = np.ones(self._window_width)
+            surrounding = self._window_width // 5
+            window[self._window_width//2-2*surrounding:self._window_width//2+2*surrounding] = 3
+            window[self._window_width//2-surrounding:self._window_width//2+surrounding] = 5
+            conv = np.convolve(window, s)
+
+            l_min_index = int(max(prev_l+offset-l_margin, 0))
+            l_max_index = int(min(prev_l+offset+l_margin, width))
+            conv_win = conv[l_min_index:l_max_index]
+            l_center = find_maximum(conv_win)
+            l_center = l_center + l_min_index - offset if conv_win[l_center] > self._threshold else None
+
+            r_min_index = int(max(prev_r+offset-r_margin, 0))
+            r_max_index = int(min(prev_r+offset+r_margin, width))
+            conv_win = conv[r_min_index:r_max_index]
+            r_center = find_maximum(conv_win)
+            r_center = r_center + r_min_index - offset if conv_win[r_center] > self._threshold else None
+
+            return l_center, r_center
+
+
         height = self.image.shape[0]
         from_ = height - (height // self._initial_fraction)
         to_ = height
         hist = histogram(self.image, from_=from_)
-        left, right = find_maximums(hist)
-        windows = []
+        left, right = find_maximum(hist[:len(hist)//2]), find_maximum(hist[len(hist)//2:]) + len(hist)//2
         left_centroids = [(left, height)]
         right_centroids = [(right, height)]
 
@@ -103,26 +132,31 @@ class LaneSearch:
 
         left_skipped = 0
         right_skipped = 0
+        dy = self.window_height//2
         for row in range(1, self.window_count):
-            section = self.image[from_:to_]
-            hist = histogram(section)
-            left, right = find_maximums(hist)
+            from_ = height - (row+1) * self.window_height
+            to_ = height - row * self.window_height
             center_height = int(height - (row + 0.5) * self.window_height)
-            if _is_tolerable(left, previous_left, left_skipped):
+
+            margin = 100
+            left_margin = (1+left_skipped) * margin
+            right_margin = (1+right_skipped) * margin
+            l, r = _convolve(from_, to_, previous_left, previous_right, left_margin, right_margin)
+
+            if _is_tolerable(l, previous_left, left_skipped):
                 left_skipped = 0
-                previous_left = left
-                left_centroids += [(left, center_height)]
+                previous_left = l
+                left_centroids.append((l, center_height))
             else:
                 left_skipped += 1
-            if _is_tolerable(right, previous_right, right_skipped):
+
+            if _is_tolerable(r, previous_right, right_skipped):
                 right_skipped = 0
-                previous_right = right
-                right_centroids += [(right, center_height)]
+                previous_right = r
+                right_centroids.append((r, center_height))
             else:
                 right_skipped += 1
 
-            from_ = height - (row+1) * self.window_height
-            to_ = height - row * self.window_height
             if draw:
                 delta = _tolerance(left_skipped)
                 _draw_rectangle(previous_left, from_, to_, left_skipped == 0, delta=delta)
