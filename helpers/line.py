@@ -215,7 +215,7 @@ class LaneSearch:
             right_func = self._fit_function(right_xs, right_ys)
             f_r = _transform_quadratic(*right_func) if right_func is not None else None
 
-        print('f_l = {}\nf_r = {}'.format(f_l, f_r))
+        #print('f_l = {}\nf_r = {}'.format(f_l, f_r))
 
         left = None
         right = None
@@ -285,3 +285,42 @@ class LaneSearch:
     def _search_smart(self, history, draw=False):
         pass
 
+
+
+
+
+def draw_lane(image, func_left, func_right, Minv):
+    ys = np.linspace(0, image.shape[0]-1, image.shape[0]//2)
+    xls = np.array([func_left(y) for y in ys])
+    xrs = np.array([func_right(y) for y in ys])
+    xms = (xrs + xls) / 2
+
+    warp_zero = np.zeros_like(image).astype(np.uint8)
+    color_warp = warp_zero.copy()
+    pts_left = np.array([np.transpose(np.vstack([xls, ys]))])
+    pts_right = np.array([np.flipud(np.transpose(np.vstack([xrs, ys])))])
+    pts = np.hstack((pts_left, pts_right))
+
+    cv2.polylines(color_warp, np.int_([pts]), isClosed=False, color=(0,0,255), thickness = 20)
+    cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
+
+    newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0]))
+    result = cv2.addWeighted(image, 1, newwarp, 0.3, 0)
+
+    color_warp = warp_zero.copy()
+    pts_center = np.array([np.transpose(np.vstack([xms, ys]))])
+    cv2.polylines(color_warp, np.int_([pts_center]), isClosed=False, color=(0,255,255), thickness = 5)
+
+    newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0]))
+    result = cv2.addWeighted(result, 1, newwarp, 0.5, 0)
+
+    return result
+
+
+def process(M, Minv):
+    def _preprocess(img):
+        warped_binary = None
+        s = LaneSearch(window_count=8, window_width=150)
+        funcs = s.search(warped_binary)
+        return draw_image(img, funcs[0], funcs[1], Minv)
+    pass
