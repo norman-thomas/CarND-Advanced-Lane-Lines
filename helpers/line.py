@@ -235,36 +235,41 @@ class LaneSearch:
             if confidence < 0.7:
                 # stronger preference for side with more valid entries
                 if len(left_centroids) >= len(right_centroids):
-                    f_r = f_l.copy()
+                    f_r = list(f_l)
                     f_r[2] += self.lane_distance
+                    f_r = tuple(f_r)
                 else:
-                    f_l = f_r.copy()
+                    f_l = list(f_r)
                     f_l[2] -= self.lane_distance
+                    f_l = tuple(f_l)
             left = Lane(self._count, True, f_l, _create_func(*f_l))
             right = Lane(self._count, True, f_r, _create_func(*f_r))
         elif f_l is not None:
-            f_r = f_l.copy()
+            f_r = list(f_l)
             f_r[2] += self.lane_distance
+            f_r = tuple(f_r)
             left = Lane(self._count, True, f_l, _create_func(*f_l))
             right = Lane(self._count, False, f_r, _create_func(*f_r))
         elif f_r is not None:
-            f_l = f_r.copy()
+            f_l = list(f_r)
             f_l[2] -= self.lane_distance
+            f_l = tuple(f_l)
             left = Lane(self._count, False, f_l, _create_func(*f_l))
             right = Lane(self._count, True, f_r, _create_func(*f_r))
         else:
-            left = Lane(self._count, False, None)
-            right = Lane(self._count, False, None)
+            left, right = self._find_last_detected()
+            left = Lane(self._count, False, left.coeffs, left.func)
+            right = Lane(self._count, False, right.coeffs, right.func)
 
         self._history.append((left, right))
         left, right = self._find_last_detected()
-        return left, right
+        return left.func, right.func
 
     def _find_last_detected(self):
         r = []
         for i in range(2):
             last = list(filter(lambda f: f[i].detected, self._history))[-1]
-            r.append(last[i].func)
+            r.append(last[i])
         return r
 
 

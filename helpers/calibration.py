@@ -1,8 +1,10 @@
 import cv2
 import numpy as np
 
-def load_image(fname):
-    img = cv2.imread(fname)
+def load_image(fname, debug=False):
+    img = np.array(cv2.imread(fname))
+    if debug:
+        print('Opened file {}, with shape {}'.format(fname, img.shape))
     return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
 def rgb2gray(img):
