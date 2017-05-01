@@ -1,5 +1,6 @@
 import os
 #import glob
+import pickle
 
 import numpy as np
 import cv2
@@ -45,12 +46,12 @@ def undistort_images(images, M, dist, folder=None):
 
     return undist_images
 
-def load_test_images(folder='test_images'):
+def load_images(folder, gray=False):
     test_image_filenames = os.listdir(folder)
-    print('Found {} test images:\n{}'.format(len(test_image_filenames), '\n'.join(test_image_filenames)))
+    print('Loading {} images from {}'.format(len(test_image_filenames), folder))
     test_image_filenames = [os.path.join(folder, fname) for fname in test_image_filenames if fname != '.DS_Store']
 
-    return [calibration.load_image(fname) for fname in test_image_filenames]
+    return [calibration.load_image(fname, gray=gray) for fname in test_image_filenames]
 
 def do_sobel(images):
     pairs = (('x', (50, 200), 29), ('y', (70, 255), 15), ('xy', (70, 255), 15))
@@ -178,30 +179,51 @@ def warp_image(image):
     source_points = np.float32((
         (230, 700), (1075, 700), (693, 455), (588, 455)
     ))
+    offset = 100
+    x1, x2 = 640 - offset, 640 + offset
     destination_points = np.float32((
-        (500, 720), (780, 720), (780, 0), (500, 0)
+        (x1, 720), (x2, 720), (x2, 0), (x1, 0)
     ))
     return warp.warp(image, source_points, destination_points)
 
 
+PICKLE = 'temp.p'
 
 if __name__ == '__main__':
-    chessboards, M, dist = calibrate_camera()
-    undistort_images(chessboards, M, dist, 'camera_undistorted')
+    images = load_images('test_images')
+    if not os.path.exists(PICKLE):
+        print('Calibrating camera...')
+        chessboards, M, dist = calibrate_camera()
+        undistort_images(chessboards, M, dist, 'camera_undistorted')
 
-    images = load_test_images()
-    images = undistort_images(images, M, dist, 'test_images_undistorted')
+        print('Undistorting test images...')
+        images = undistort_images(images, M, dist, 'test_images_undistorted')
 
-    #images = [apply_roi(img) for img in images]
-    do_sobel(images)
+        #images = [apply_roi(img) for img in images]
+        print('Looking for edges and applying color thresholds...')
+        do_sobel(images)
 
-    thresh_images = [do_thresholding(img) for i, img in enumerate(images)]
-    save_images(thresh_images, 'threshold', ['binary_{}.jpg'.format(i) for i in range(len(thresh_images))])
+        thresh_images = [do_thresholding(img) for i, img in enumerate(images)]
+        save_images(thresh_images, 'threshold', ['binary_{}.jpg'.format(i) for i in range(len(thresh_images))])
 
-    warped_images = [warp_image(img) for img in images]
-    warped_binaries = [warp_image(img) for img in thresh_images]
-    save_images(warped_images, 'warped', ['warped_{}.jpg'.format(i) for i in range(len(warped_images))])
-    save_images(warped_binaries, 'warped', ['warped_binary_{}.jpg'.format(i) for i in range(len(warped_binaries))])
+        print('Warping images...')
+        warped_images = [warp_image(img) for img in images]
+        warped_binaries = [warp_image(img) for img in thresh_images]
+        save_images(warped_images, 'warped', ['warped_{}.jpg'.format(i) for i in range(len(warped_images))])
+        save_images(warped_binaries, 'warped_binary', ['warped_binary_{}.jpg'.format(i) for i in range(len(warped_binaries))])
+
+        print('Saving pickle with calibration info...')
+        with open(PICKLE, 'wb') as f:
+            pickle.dump((M, dist), f)
+    else:
+        with open(PICKLE, 'rb') as f:
+            M, dist = pickle.load(f)
+        warped_binaries = load_images('warped_binary', gray=True)
+
+    for img in warped_binaries:
+        s = line.LaneSearch(window_count=8, window_width=150)
+        s.search(img, draw=True)
+
 
     # hand picked subset of test images to showcase some standard and difficult edge cases
     sample_indices = [0, 1, 5, 6, 8, 10, 14, 16, 17, 24]
