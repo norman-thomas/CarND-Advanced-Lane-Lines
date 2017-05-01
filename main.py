@@ -115,7 +115,7 @@ def do_thresholding(image, i=None):
     elif bright_pixels > 4000:
         print('Image {} is bright with: sunny px = {}, bright px = {}, mean = {}'.format(i, sunny_pixels, bright_pixels, mean))
         # bright n sunny
-        # b > 150
+        # ~20 < L < 50 && b > 120 || L > 50 && b > 150
         # HLS S > 75 < 255
         hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
         binary_hls_s = _threshold(hls, 2, 90, 255)
@@ -127,6 +127,7 @@ def do_thresholding(image, i=None):
 
         result = np.max((binary_lab_b, binary_hls_s, binary_hsv_s, binary_rgb_r), axis=0)
         result[lab[...,0] < 2*min_brightness] = 0
+        result[(lab[...,0] > 20) & (lab[...,0] < 50) & (lab[...,2] > 120)] = 1
         if i is not None:
             save_images(
                 [result, binary_hls_s, binary_hsv_s, binary_rgb_r],
@@ -144,7 +145,7 @@ def do_thresholding(image, i=None):
         hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
         binary_hsv_s = _threshold(hsv, 1, 110, 255)
         # R channel > 170?
-        binary_rgb_r = _threshold(image, 0, 170, 255) # 200?
+        binary_rgb_r = _threshold(image, 0, 200, 255) # 170 or 200?
         result = np.max((binary_lab_b, binary_hls_s, binary_hsv_s, binary_rgb_r), axis=0)
         result[lab[...,0] < min_brightness] = 0
         if i is not None:
@@ -155,17 +156,34 @@ def do_thresholding(image, i=None):
             )
     return result
 
-def apply_roi(images, region=None):
-    return images
+def apply_roi(image):
+    points = np.array([[
+        [0, 720],
+        [0, 670],
+        [580, 455],
+        [700, 455],
+        [1280, 670],
+        [1280, 720]
+    ]])
+    white = 255
+    if len(image.shape) > 2:
+        white = (white,) * image.shape[2]
+
+    mask = np.zeros_like(image)
+    cv2.fillPoly(mask, points, white)
+    return cv2.bitwise_and(image, mask)
 
 
-def warp():
+def warp_image(image):
     source_points = np.float32((
         (230, 700), (1075, 700), (693, 455), (588, 455)
     ))
     destination_points = np.float32((
-        (280, 720), (1000, 720), (1000, 0), (280, 0)
+        (500, 720), (780, 720), (780, 0), (500, 0)
     ))
+    return warp.warp(image, source_points, destination_points)
+
+
 
 if __name__ == '__main__':
     chessboards, M, dist = calibrate_camera()
@@ -174,11 +192,16 @@ if __name__ == '__main__':
     images = load_test_images()
     images = undistort_images(images, M, dist, 'test_images_undistorted')
 
-    images = apply_roi(images)
+    #images = [apply_roi(img) for img in images]
     do_sobel(images)
 
-    thresh_images = [do_thresholding(img, i) for i, img in enumerate(images)]
+    thresh_images = [do_thresholding(img) for i, img in enumerate(images)]
     save_images(thresh_images, 'threshold', ['binary_{}.jpg'.format(i) for i in range(len(thresh_images))])
+
+    warped_images = [warp_image(img) for img in images]
+    warped_binaries = [warp_image(img) for img in thresh_images]
+    save_images(warped_images, 'warped', ['warped_{}.jpg'.format(i) for i in range(len(warped_images))])
+    save_images(warped_binaries, 'warped', ['warped_binary_{}.jpg'.format(i) for i in range(len(warped_binaries))])
 
     # hand picked subset of test images to showcase some standard and difficult edge cases
     sample_indices = [0, 1, 5, 6, 8, 10, 14, 16, 17, 24]
