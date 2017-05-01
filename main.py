@@ -4,17 +4,19 @@ import pickle
 
 import numpy as np
 import cv2
+from moviepy.video.io.VideoFileClip import VideoFileClip
 
 import random
 import math
 
 import matplotlib.image as mpimg
 
-import helpers.calibration as calibration
+from helpers.calibration import Camera
+from helpers.warp import Warper
 import helpers.sobel as sobel
 import helpers.color as color
-import helpers.warp as warp
 import helpers.line as line
+import helpers.utils as utils
 
 OUTPUT_FOLDER = 'output_images'
 
@@ -31,22 +33,19 @@ def save_images(images, folder, filenames):
 def calibrate_camera(folder='camera_cal'):
     cal_files = os.listdir(folder)
     cal_files = list(map(lambda f: os.path.join(folder, f), cal_files))
-    cal_images = [ calibration.load_image(f) for f in cal_files ]
+    cal_images = [ utils.load_image(f) for f in cal_files ]
     print('There are {} calibration images present'.format(len(cal_files)))
 
-    cal_chessboards = [calibration.chessboard(img, draw=True)[2] for img in cal_images]
-    save_images(cal_chessboards, 'camera_chessboard', ['chessboard_{:02d}.jpg'.format(i) for i in range(len(cal_files))])
-
-    M, dist = calibration.calibrate(cal_images)
+    camera = Camera()
+    M, dist = camera.calibrate(cal_images)
     print('Camera matrix:', M)
     print('Distortion coefficients:', dist)
-    return cal_images, M, dist
+    return camera
 
-def undistort_images(images, M, dist, folder=None):
-    undist_images = [calibration.undistort(img, M, dist) for img in images]
+def undistort_images(images, camera, folder=None):
+    undist_images = [camera.undistort(img) for img in images]
     if folder is not None:
         save_images(undist_images, folder, ['undistorted_{:02d}.jpg'.format(i) for i in range(len(images))])
-
     return undist_images
 
 def load_images(folder, gray=False, debug=False):
@@ -56,7 +55,7 @@ def load_images(folder, gray=False, debug=False):
         print('\n'.join(test_image_filenames))
     test_image_filenames = [os.path.join(folder, fname) for fname in test_image_filenames if fname != '.DS_Store']
 
-    return [calibration.load_image(fname, gray=gray) for fname in test_image_filenames]
+    return [utils.load_image(fname, gray=gray) for fname in test_image_filenames]
 
 def do_sobel(images):
     pairs = (('x', (50, 200), 29), ('y', (70, 255), 15), ('xy', (70, 255), 15))
@@ -99,7 +98,7 @@ def do_thresholding(image, i=None):
     if i is not None:
         save_images([binary_lab_b], 'threshold', ['{}_bin_lab_b.jpg'.format(i)])
     if sunny_pixels > 15000 or bright_pixels > 15000:
-        print('Image {} is sunny with: sunny px = {}, bright px = {}, mean = {}'.format(i, sunny_pixels, bright_pixels, mean))
+        #print('Image {} is sunny with: sunny px = {}, bright px = {}, mean = {}'.format(i, sunny_pixels, bright_pixels, mean))
         # with sun
         # b > 150
         hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
@@ -119,7 +118,7 @@ def do_thresholding(image, i=None):
                 ['{}_result_sunny.jpg'.format(i), '{}_bin_hsv_s.jpg'.format(i), '{}_bin_mysobel.jpg'.format(i)]
             )
     elif bright_pixels > 4000:
-        print('Image {} is bright with: sunny px = {}, bright px = {}, mean = {}'.format(i, sunny_pixels, bright_pixels, mean))
+        #print('Image {} is bright with: sunny px = {}, bright px = {}, mean = {}'.format(i, sunny_pixels, bright_pixels, mean))
         # bright n sunny
         # ~20 < L < 50 && b > 120 || L > 50 && b > 150
         # HLS S > 75 < 255
@@ -141,7 +140,7 @@ def do_thresholding(image, i=None):
                 ['{}_result_bright.jpg'.format(i), '{}_bin_hls_s.jpg'.format(i), '{}_bin_hsv_s.jpg'.format(i), '{}_bin_rgb_r.jpg'.format(i)]
             )
     else:
-        print('Image {} is normal with: sunny px = {}, bright px = {}, mean = {}'.format(i, sunny_pixels, bright_pixels, mean))
+        #print('Image {} is normal with: sunny px = {}, bright px = {}, mean = {}'.format(i, sunny_pixels, bright_pixels, mean))
         # without sun
         # b channel > 150
         # HLS S channel > 75 < 200
@@ -179,58 +178,77 @@ def apply_roi(image):
     cv2.fillPoly(mask, points, white)
     return cv2.bitwise_and(image, mask)
 
-
-def warp_image(image):
-    source_points = np.float32((
-        (230, 700), (1075, 700), (693, 455), (588, 455)
-    ))
-    offset = 100
-    x1, x2 = 640 - offset, 640 + offset
-    destination_points = np.float32((
-        (x1, 720), (x2, 720), (x2, 0), (x1, 0)
-    ))
-    return warp.warp(image, source_points, destination_points)
-
-
 PICKLE = 'temp.p'
-
-if __name__ == '__main__':
-    images = load_images('test_images')
-    if not os.path.exists(PICKLE):
+def prepare(recreate=False):
+    camera = None
+    if recreate or not os.path.exists(PICKLE):
         print('Calibrating camera...')
-        chessboards, M, dist = calibrate_camera()
-        undistort_images(chessboards, M, dist, 'camera_undistorted')
-
-        print('Undistorting test images...')
-        images = undistort_images(images, M, dist, 'test_images_undistorted')
-
-        #images = [apply_roi(img) for img in images]
-        print('Looking for edges and applying color thresholds...')
-        do_sobel(images)
-
-        thresh_images = [do_thresholding(img) for i, img in enumerate(images)]
-        save_images(thresh_images, 'threshold', ['binary_{:02d}.jpg'.format(i) for i in range(len(thresh_images))])
-
-        print('Warping images...')
-        warped_images = [warp_image(img) for img in images]
-        warped_binaries = [warp_image(img) for img in thresh_images]
-        save_images(warped_images, 'warped', ['warped_{:02d}.jpg'.format(i) for i in range(len(warped_images))])
-        save_images(warped_binaries, 'warped_binary', ['warped_binary_{:02d}.jpg'.format(i) for i in range(len(warped_binaries))])
-
+        camera = calibrate_camera()
+        #undistort_images(chessboards, M, dist, 'camera_undistorted')
         print('Saving pickle with calibration info...')
         with open(PICKLE, 'wb') as f:
             pickle.dump((M, dist), f)
     else:
         with open(PICKLE, 'rb') as f:
             M, dist = pickle.load(f)
-        warped_binaries = load_images('warped_binary', gray=True, debug=True)
 
-    for i, img in enumerate(warped_binaries):
+    images = None
+    if recreate or not os.path.exists(os.path.join(OUTPUT_FOLDER, 'test_images_undistorted', 'undistorted_00.jpg')):
+        print('Undistorting test images...')
+        images = load_images('test_images')
+        images = undistort_images(images, camera, 'test_images_undistorted')
+    else:
+        images = load_images(os.path.join(OUTPUT_FOLDER, 'test_images_undistorted'))
+
+    #images = [apply_roi(img) for img in images]
+    thresh_images = None
+    if recreate or not os.path.exists(os.path.join(OUTPUT_FOLDER, 'threshold', 'binary_00.jpg')):
+        print('Looking for edges and applying color thresholds...')
+        #do_sobel(images)
+        thresh_images = [do_thresholding(img) for i, img in enumerate(images)]
+        save_images(thresh_images, 'threshold', ['binary_{:02d}.jpg'.format(i) for i in range(len(thresh_images))])
+    else:
+        thresh_images = load_images(os.path.join(OUTPUT_FOLDER, 'threshold'), gray=True)
+
+    warped_binaries = None
+    if recreate or not os.path.exists(os.path.join(OUTPUT_FOLDER, 'warped_binary', 'warped_binary_00.jpg')):
+        warper = Warper()
+        print('Warping images...')
+        warped_images = [warper.warp(img) for img in images]
+        warped_binaries = [warper.warp(img) for img in thresh_images]
+        save_images(warped_images, 'warped', ['warped_{:02d}.jpg'.format(i) for i in range(len(warped_images))])
+        save_images(warped_binaries, 'warped_binary', ['warped_binary_{:02d}.jpg'.format(i) for i in range(len(warped_binaries))])
+    else:
+        warped_binaries = load_images(os.path.join(OUTPUT_FOLDER, 'warped_binary'), gray=True)
+
+    return images, warped_binaries, M, dist
+
+def process(camera, warper, s):
+    def _process(img):
+        img = camera.undistort(img)
+        thresh = do_thresholding(img)
+        warped = warper.warp(thresh)
+        funcs = s.search(warped)
+        line.draw_lane(img, *funcs, warper)
+        return img
+    return _process
+
+
+if __name__ == '__main__':
+    images, warped_binaries, camera_M, camera_dist = prepare()
+    camera = Camera(camera_M, camera_dist)
+    warper = Warper()
+
+    for i, img in enumerate(warped_binaries[:14]):
         print('Searching for lanes in image {}...'.format(i))
-        s = line.LaneSearch(window_count=8, window_width=150)
+        s = line.LaneSearch(window_count=9, window_width=100)
         s.search(img, draw=True)
+        save_images([s.draw_image], 'draw', ['draw_{:02d}.jpg'.format(i)])
 
+    #s = line.LaneSearch(window_count=9, window_width=100)
+    #clip = VideoFileClip('project_video.mp4')
+    #M, Minv = get_matrices()
+    #result = clip.fl_image(process(camera, warper, s,))
+    #result.write_videofile('out.mp4', audio=False)
 
-    # hand picked subset of test images to showcase some standard and difficult edge cases
-    sample_indices = [0, 1, 5, 6, 8, 10, 14, 16, 17, 24]
 

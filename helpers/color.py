@@ -2,6 +2,9 @@ import numpy as np
 import cv2
 
 
+def rgb2gray(img):
+    return cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+
 def split_channels(images):
     result = []
     for img in images:

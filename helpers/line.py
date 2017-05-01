@@ -19,17 +19,21 @@ class Line():
         #polynomial coefficients averaged over the last n iterations
         self.best_fit = None
         #polynomial coefficients for the most recent fit
-        self.current_fit = [np.array([False])]
-        #radius of curvature of the line in some units
-        self.radius_of_curvature = None
-        #distance in meters of vehicle center from the line
-        self.line_base_pos = None
+        self.current_fit = None
         #difference in fit coefficients between last and new fits
         self.diffs = np.array([0,0,0], dtype='float')
         #x values for detected line pixels
         self.allx = None
         #y values for detected line pixels
         self.ally = None
+
+    @property
+    def curvature(self):
+        return 0
+
+    @property
+    def offset(self):
+        return 0
 
 
 Lane = namedtuple('Lane', ['num', 'detected', 'coeffs', 'func'])
@@ -44,6 +48,9 @@ def circle(x, xc, yc, r):
 
 def quadratic(x, a, b, c):
     return a*(x + b)**2 + c
+
+def quadratic2(x, a, b, c):
+    return a*x**2 + b*x + c
 
 def _create_func(a, b, c):
     def _quadratic(x):
@@ -65,6 +72,9 @@ class LaneSearch:
         self._history = []
         self._threshold = 300
         self._count = 0
+
+        self.left = Line()
+        self.right = Line()
 
     @property
     def image(self):
@@ -93,7 +103,7 @@ class LaneSearch:
     def search(self, frame, history=None, draw=False):
         self._image = frame
         self._draw_image = np.dstack((frame, frame, frame)) * 255 if draw else None
-        
+
         result = self._search_smart(history, draw=draw)
         if result is None:
             result = self._search_dumb(draw=draw)
@@ -168,7 +178,7 @@ class LaneSearch:
             to_ = height - row * self.window_height
             center_height = int(height - (row + 0.5) * self.window_height)
 
-            margin = 50
+            margin = 20
             left_margin = (1+left_skipped) * margin
             right_margin = (1+right_skipped) * margin
             l, r = _convolve(from_, to_, previous_left, previous_right, left_margin, right_margin)
@@ -200,8 +210,6 @@ class LaneSearch:
             cv2.polylines(self._draw_image, [right_centroids], False, (0,0,255), thickness=15)
 
         # calc polynomial
-        print(left_centroids)
-        print(right_centroids)
         funcs = self._fit(left_centroids, right_centroids)
 
         self._count += 1
@@ -220,7 +228,7 @@ class LaneSearch:
             right_func = self._fit_function(right_xs, right_ys)
             f_r = _transform_quadratic(*right_func) if right_func is not None else None
 
-        print('f_l = {}\nf_r = {}'.format(f_l, f_r))
+        #print('f_l = {}\nf_r = {}'.format(f_l, f_r))
 
         left = None
         right = None
@@ -291,9 +299,7 @@ class LaneSearch:
         pass
 
 
-
-
-def draw_lane(image, func_left, func_right, Minv):
+def draw_lane(image, func_left, func_right, warper):
     ys = np.linspace(0, image.shape[0]-1, image.shape[0]//2)
     xls = np.array([func_left(y) for y in ys])
     xrs = np.array([func_right(y) for y in ys])
@@ -315,7 +321,7 @@ def draw_lane(image, func_left, func_right, Minv):
     pts_center = np.array([np.transpose(np.vstack([xms, ys]))])
     cv2.polylines(color_warp, np.int_([pts_center]), isClosed=False, color=(0,255,255), thickness = 5)
 
-    newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0]))
+    newwarp = warper.unwarp(color_warp)
     result = cv2.addWeighted(result, 1, newwarp, 0.5, 0)
 
     return result
