@@ -1,8 +1,6 @@
 import cv2
 import numpy as np
 
-from .color import rgb2gray
-
 class Camera:
     def __init__(self, m=None, dist=None):
         self.M = m
@@ -13,7 +11,7 @@ class Camera:
     def _chessboard(img, dims=(9, 6), draw=False):
         gray = img
         if len(img.shape) == 3:
-            gray = rgb2gray(img)
+            gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         ret, corners = cv2.findChessboardCorners(gray, dims, None)
         if ret and draw:
             chess_img = img.copy()

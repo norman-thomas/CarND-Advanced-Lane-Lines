@@ -1,11 +1,9 @@
 import numpy as np
 import cv2
 
-from .calibration import rgb2gray
-
 def grayscale(image):
     if len(image.shape) == 3:
-        return rgb2gray(image)
+        return cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     return image
 
 def sobel(image, axis='x', directional=False, threshold=(20, 100), kernel=3):
@@ -33,3 +31,11 @@ def sobel(image, axis='x', directional=False, threshold=(20, 100), kernel=3):
     binary[(s >= threshold[0]) & (s <= threshold[1])] = 1
     return binary
 
+
+def my_sobel(image):
+    m = np.array([
+        [-2, 0, 2],
+        [-1, 0, 1],
+        [-2, 0, 2]
+    ])
+    return cv2.filter2D(image, -1, m)
