@@ -38,7 +38,7 @@ def histogram(img, from_=None, to=None):
     if to is None:
         to = height
     if from_ is None:
-        from_ = height // 2
+        from_ = 0
     if from_ >= to or to > height:
         return None
     area = img[from_:to, :]

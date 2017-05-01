@@ -143,19 +143,22 @@ class LaneSearch:
             return l_center, r_center
 
 
-        height = self.image.shape[0]
-        from_ = height - (height // self._initial_fraction)
-        to_ = height
-        hist = histogram(self.image, from_=from_)
-        left, right = find_maximum(hist[:len(hist)//2]), find_maximum(hist[len(hist)//2:]) + len(hist)//2
+        height, width = self.image.shape
+        from_y = height - (height // self._initial_fraction)
+        to_y = height
+        offset = 130
+        from_x, to_x = width//2 - offset, width//2 + offset
+        snip = self.image[from_y:to_y, from_x:to_x]
+        hist = histogram(snip)
+        left, right = from_x + find_maximum(hist[:len(hist)//2]), from_x + find_maximum(hist[len(hist)//2:]) + len(hist)//2
         left_centroids = [(left, height)]
         right_centroids = [(right, height)]
 
         previous_left = left
         previous_right = right
         if draw:
-            _draw_rectangle(previous_left, height - self.window_height, to_)
-            _draw_rectangle(previous_right, height - self.window_height, to_)
+            _draw_rectangle(previous_left, height - self.window_height, to_y)
+            _draw_rectangle(previous_right, height - self.window_height, to_y)
 
         left_skipped = 0
         right_skipped = 0
@@ -165,7 +168,7 @@ class LaneSearch:
             to_ = height - row * self.window_height
             center_height = int(height - (row + 0.5) * self.window_height)
 
-            margin = 100
+            margin = 50
             left_margin = (1+left_skipped) * margin
             right_margin = (1+right_skipped) * margin
             l, r = _convolve(from_, to_, previous_left, previous_right, left_margin, right_margin)
@@ -197,6 +200,8 @@ class LaneSearch:
             cv2.polylines(self._draw_image, [right_centroids], False, (0,0,255), thickness=15)
 
         # calc polynomial
+        print(left_centroids)
+        print(right_centroids)
         funcs = self._fit(left_centroids, right_centroids)
 
         self._count += 1
@@ -215,7 +220,7 @@ class LaneSearch:
             right_func = self._fit_function(right_xs, right_ys)
             f_r = _transform_quadratic(*right_func) if right_func is not None else None
 
-        #print('f_l = {}\nf_r = {}'.format(f_l, f_r))
+        print('f_l = {}\nf_r = {}'.format(f_l, f_r))
 
         left = None
         right = None
@@ -284,7 +289,6 @@ class LaneSearch:
 
     def _search_smart(self, history, draw=False):
         pass
-
 
 
 

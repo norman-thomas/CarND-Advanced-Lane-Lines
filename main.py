@@ -16,14 +16,17 @@ import helpers.color as color
 import helpers.warp as warp
 import helpers.line as line
 
+OUTPUT_FOLDER = 'output_images'
+
 def save_images(images, folder, filenames):
-    if not os.path.exists(folder):
-        os.mkdir(folder)
+    path = os.path.join(OUTPUT_FOLDER, folder)
+    if not os.path.exists(path):
+        os.mkdir(path)
     for img, fname in zip(images, filenames):
         if len(img.shape) == 2:
-            mpimg.imsave(os.path.join(folder, fname), img, format='jpg', cmap='gray')
+            mpimg.imsave(os.path.join(path, fname), img, format='jpg', cmap='gray')
         else:
-            mpimg.imsave(os.path.join(folder, fname), img, format='jpg')
+            mpimg.imsave(os.path.join(path, fname), img, format='jpg')
 
 def calibrate_camera(folder='camera_cal'):
     cal_files = os.listdir(folder)
@@ -32,7 +35,7 @@ def calibrate_camera(folder='camera_cal'):
     print('There are {} calibration images present'.format(len(cal_files)))
 
     cal_chessboards = [calibration.chessboard(img, draw=True)[2] for img in cal_images]
-    save_images(cal_chessboards, 'camera_chessboard', ['chessboard_{}.jpg'.format(i) for i in range(len(cal_files))])
+    save_images(cal_chessboards, 'camera_chessboard', ['chessboard_{:02d}.jpg'.format(i) for i in range(len(cal_files))])
 
     M, dist = calibration.calibrate(cal_images)
     print('Camera matrix:', M)
@@ -42,13 +45,15 @@ def calibrate_camera(folder='camera_cal'):
 def undistort_images(images, M, dist, folder=None):
     undist_images = [calibration.undistort(img, M, dist) for img in images]
     if folder is not None:
-        save_images(undist_images, folder, ['undistorted_{}.jpg'.format(i) for i in range(len(images))])
+        save_images(undist_images, folder, ['undistorted_{:02d}.jpg'.format(i) for i in range(len(images))])
 
     return undist_images
 
-def load_images(folder, gray=False):
+def load_images(folder, gray=False, debug=False):
     test_image_filenames = os.listdir(folder)
     print('Loading {} images from {}'.format(len(test_image_filenames), folder))
+    if debug:
+        print('\n'.join(test_image_filenames))
     test_image_filenames = [os.path.join(folder, fname) for fname in test_image_filenames if fname != '.DS_Store']
 
     return [calibration.load_image(fname, gray=gray) for fname in test_image_filenames]
@@ -57,9 +62,9 @@ def do_sobel(images):
     pairs = (('x', (50, 200), 29), ('y', (70, 255), 15), ('xy', (70, 255), 15))
     for axis , thresh, kernel in pairs:
         s = np.array([sobel.sobel(img, axis=axis, threshold=thresh, kernel=kernel) for img in images])
-        save_images(s, 'sobel', ['sobel{}_{}.jpg'.format(axis, i) for i in range(len(images))])
+        save_images(s, 'sobel', ['sobel{}_{:02d}.jpg'.format(axis, i) for i in range(len(images))])
     s = np.array([sobel.sobel(img, directional=True, threshold=(0.9,1.1), kernel=25) for img in images])
-    save_images(s, 'sobel', ['sobeld_{}.jpg'.format(i) for i in range(len(images))])
+    save_images(s, 'sobel', ['sobeld_{:02d}.jpg'.format(i) for i in range(len(images))])
 
 def detect_brightness(image):
     h = image.shape[0]
@@ -204,13 +209,13 @@ if __name__ == '__main__':
         do_sobel(images)
 
         thresh_images = [do_thresholding(img) for i, img in enumerate(images)]
-        save_images(thresh_images, 'threshold', ['binary_{}.jpg'.format(i) for i in range(len(thresh_images))])
+        save_images(thresh_images, 'threshold', ['binary_{:02d}.jpg'.format(i) for i in range(len(thresh_images))])
 
         print('Warping images...')
         warped_images = [warp_image(img) for img in images]
         warped_binaries = [warp_image(img) for img in thresh_images]
-        save_images(warped_images, 'warped', ['warped_{}.jpg'.format(i) for i in range(len(warped_images))])
-        save_images(warped_binaries, 'warped_binary', ['warped_binary_{}.jpg'.format(i) for i in range(len(warped_binaries))])
+        save_images(warped_images, 'warped', ['warped_{:02d}.jpg'.format(i) for i in range(len(warped_images))])
+        save_images(warped_binaries, 'warped_binary', ['warped_binary_{:02d}.jpg'.format(i) for i in range(len(warped_binaries))])
 
         print('Saving pickle with calibration info...')
         with open(PICKLE, 'wb') as f:
@@ -218,9 +223,10 @@ if __name__ == '__main__':
     else:
         with open(PICKLE, 'rb') as f:
             M, dist = pickle.load(f)
-        warped_binaries = load_images('warped_binary', gray=True)
+        warped_binaries = load_images('warped_binary', gray=True, debug=True)
 
-    for img in warped_binaries:
+    for i, img in enumerate(warped_binaries):
+        print('Searching for lanes in image {}...'.format(i))
         s = line.LaneSearch(window_count=8, window_width=150)
         s.search(img, draw=True)
 
