@@ -7,14 +7,6 @@ from collections import namedtuple, deque
 from .color import histogram, find_maximum
 from .line import Line
 
-
-Lane = namedtuple('Lane', ['num', 'detected', 'coeffs', 'func'])
-class LaneClass:
-    def __init__(self):
-        self.num = -1
-        self.detected = False
-        self.coeffs = None
-
 class LaneSearch:
     def __init__(self, window_count=9, window_width=100, initial_fraction=4):
         self._image = None
@@ -88,17 +80,17 @@ class LaneSearch:
             s = np.sum(self.image[y1:y2, :], axis=0)
             window = np.ones(self._window_width)
             surrounding = self._window_width // 5
-            window[self._window_width//2-2*surrounding:self._window_width//2+2*surrounding] = 3
-            window[self._window_width//2-surrounding:self._window_width//2+surrounding] = 5
+            window[self._window_width//2-2*surrounding:self._window_width//2+2*surrounding] = 2
+            window[self._window_width//2-surrounding:self._window_width//2+surrounding] = 4
             conv = np.convolve(window, s)
 
-            l_min_index = int(max(prev_l+offset-l_margin, 0))
+            l_min_index = int(max(prev_l-offset-l_margin, 0))
             l_max_index = int(min(prev_l+offset+l_margin, width))
             conv_win = conv[l_min_index:l_max_index]
             l_center = find_maximum(conv_win)
             l_center = l_center + l_min_index - offset if conv_win[l_center] > self._threshold else None
 
-            r_min_index = int(max(prev_r+offset-r_margin, 0))
+            r_min_index = int(max(prev_r-offset-r_margin, 0))
             r_max_index = int(min(prev_r+offset+r_margin, width))
             conv_win = conv[r_min_index:r_max_index]
             r_center = find_maximum(conv_win)
@@ -110,11 +102,13 @@ class LaneSearch:
         height, width = self.image.shape
         from_y = height - (height // self._initial_fraction)
         to_y = height
-        offset = 130
+        offset = width//2 # 130?
         from_x, to_x = width//2 - offset, width//2 + offset
         snip = self.image[from_y:to_y, from_x:to_x]
         hist = histogram(snip)
-        left, right = from_x + find_maximum(hist[:len(hist)//2]), from_x + find_maximum(hist[len(hist)//2:]) + len(hist)//2
+        margin = 250
+        midpoint = len(hist)//2
+        left, right = from_x + find_maximum(hist[margin:midpoint]) + margin, from_x + find_maximum(hist[midpoint:width-margin]) + midpoint
         left_centroids = [(left, height)]
         right_centroids = [(right, height)]
 
@@ -135,6 +129,7 @@ class LaneSearch:
             margin = 30
             left_margin = margin * 1.1**left_skipped
             right_margin = margin * 1.1**right_skipped
+            print('ROW:', row)
             l, r = _convolve(from_, to_, previous_left, previous_right, left_margin, right_margin)
 
             if _is_tolerable(l, previous_left, left_skipped):
@@ -166,10 +161,6 @@ class LaneSearch:
         # calc polynomial
         left_coeffs = self.left.fit(left_centroids)
         right_coeffs = self.right.fit(right_centroids)
-        if left_coeffs is None:
-            pass
-        if right_coeffs is None:
-            pass
 
         new_left, new_right = self._sanity_check_and_fix(left_coeffs, right_coeffs, left_centroids, right_centroids)
         if new_left is not None:
@@ -186,11 +177,28 @@ class LaneSearch:
         return self.left, self.right
 
     def _sanity_check_and_fix(self, left_coeffs, right_coeffs, left_centroids, right_centroids, y=720):
-        if left_coeffs is None:
-            self.left.last_fit
-            pass
-        elif right_coeffs is None:
-            pass
+        def _cascade(first, second, first_line, second_line, distance):
+            result = first
+            if result is None:
+                last = first_line.last_fit
+                if last is not None:
+                    result = last.copy()
+                else:
+                    if second is not None:
+                        result = second.copy()
+                        result[2] += distance
+                    else:
+                        last_right = second_line.last_fit
+                        if last is not None:
+                            result = last_right.copy()
+                            result += distance
+            return result
+
+        left_coeffs = _cascade(left_coeffs, right_coeffs, self.left, self.right, -self.lane_distance)
+        right_coeffs = _cascade(right_coeffs, left_coeffs, self.right, self.left, self.lane_distance)
+
+        if left_coeffs is None or right_coeffs is None:
+            return None, None
 
         result_left, result_right = left_coeffs.copy(), right_coeffs.copy()
         left_func = self.left.create_function(*left_coeffs)
@@ -219,62 +227,6 @@ class LaneSearch:
                 result_left = right_coeffs.copy()
                 result_left[2] -= self.lane_distance
         return result_left, result_right
-
-    def _fit(self, left_centroids, right_centroids):
-        left = None
-        right = None
-        confidence = 1.0
-        if f_l is not None and f_r is not None:
-            horizontal_space = f_r[-1] - f_l[-1]
-            if not(700 < horizontal_space < 850):
-                confidence *= 0.8
-
-            # compare the scale of the quadratic coefficients
-            p1c2 = math.log10(abs(f_l[0]))
-            p2c2 = math.log10(abs(f_r[0]))
-            coeff_diff = p1c2 / p2c2
-            if not(0.75 < coeff_diff < 1.25):
-                confidence *= 0.7
-
-            if confidence < 0.7:
-                # stronger preference for side with more valid entries
-                if len(left_centroids) >= len(right_centroids):
-                    f_r = list(f_l)
-                    f_r[2] += self.lane_distance
-                    f_r = tuple(f_r)
-                else:
-                    f_l = list(f_r)
-                    f_l[2] -= self.lane_distance
-                    f_l = tuple(f_l)
-            left = Lane(self._count, True, f_l, _create_func(*f_l))
-            right = Lane(self._count, True, f_r, _create_func(*f_r))
-        elif f_l is not None:
-            f_r = list(f_l)
-            f_r[2] += self.lane_distance
-            f_r = tuple(f_r)
-            left = Lane(self._count, True, f_l, _create_func(*f_l))
-            right = Lane(self._count, False, f_r, _create_func(*f_r))
-        elif f_r is not None:
-            f_l = list(f_r)
-            f_l[2] -= self.lane_distance
-            f_l = tuple(f_l)
-            left = Lane(self._count, False, f_l, _create_func(*f_l))
-            right = Lane(self._count, True, f_r, _create_func(*f_r))
-        else:
-            left, right = self._find_last_detected()
-            left = Lane(self._count, False, left.coeffs, left.func)
-            right = Lane(self._count, False, right.coeffs, right.func)
-
-        self._history.append((left, right))
-        left, right = self._find_last_detected()
-        return left.func, right.func
-
-    def _find_last_detected(self):
-        r = []
-        for i in range(2):
-            last = list(filter(lambda f: f[i].detected, self._history))[-1]
-            r.append(last[i])
-        return r
 
 
     @staticmethod

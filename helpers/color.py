@@ -54,23 +54,51 @@ class ColorThreshold:
         raise Exception('abstract class')
 
     @classmethod
+    def threshold(cls, img):
+        return cls._simple_threnshold(img)
+
+    @classmethod
+    def _other_threshold(cls, img):
+        yellow = cls.is_yellow(img)
+        white = cls.is_white(img)
+        return np.max((yellow, white), axis=0)
+
+    @classmethod
     def is_yellow(cls, img):
         lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
-        low_yellow = np.array([0, 0, 0])
-        high_yellow = np.array([0, 0, 0])
-        mask = cv2.inRange(lab, low_yellow, high_yellow)
+        mask = cv2.inRange(lab, (20, 100, 100), (50, 255, 255))
         return mask
 
     @classmethod
     def is_white(cls, img):
+        sensitivity_1 = 68
+        sensitivity_2 = 60
+
         hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
-        low_white = np.array([0, 0, 0])
-        high_white = np.array([0, 0, 0])
-        mask = cv2.inRange(hsv, low_white, high_white)
+        hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+        white_1 = cv2.inRange(hsv, (0, 0, 255 - sensitivity_1), (255, 20, 255))
+        white_2 = cv2.inRange(hls, (0, 255 - sensitivity_2, 0), (255, 255, sensitivity_2))
+        white_3 = cv2.inRange(img, (200, 200, 200), (255, 255, 255))
+
+        mask = np.max((white_1, white_2, white_3), axis=0)
         return mask
 
     @classmethod
-    def do_thresholding(cls, image):
+    def _simple_threnshold(cls, img):
+        hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+        hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+        lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
+
+        thresh_lab = cv2.inRange(lab, (100, 0, 145), (255, 255, 255))
+        thresh_hls = cv2.inRange(hls, (0, 40, 165), (100, 255, 255))
+        thresh_hsv = cv2.inRange(hsv, (0, 0, 235), (30, 255, 255))
+        
+        mask = np.max((thresh_lab, thresh_hls, thresh_hsv), axis=0)
+        return mask
+
+
+    @classmethod
+    def _do_thresholding(cls, image):
         hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
         sunny_pixels, bright_pixels, mean = cls._detect_brightness(hls[:, :, 2])
 

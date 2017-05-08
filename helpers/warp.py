@@ -14,7 +14,7 @@ class Warper:
 
     @property
     def destination_points(self):
-        offset = 100
+        offset = 200
         x1, x2 = 640 - offset, 640 + offset
         return np.array([
             (x1, 720), (x2, 720), (x2, 0), (x1, 0)

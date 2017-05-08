@@ -111,7 +111,7 @@ def prepare(recreate=False):
     if recreate or not os.path.exists(os.path.join(OUTPUT_FOLDER, 'threshold', 'binary_00.jpg')):
         print('Looking for edges and applying color thresholds...')
         #do_sobel(images)
-        thresh_images = [color.ColorThreshold.do_thresholding(img) for i, img in enumerate(images)]
+        thresh_images = [color.ColorThreshold.threshold(img) for i, img in enumerate(images)]
         save_images(thresh_images, 'threshold', ['binary_{:02d}.jpg'.format(i) for i in range(len(thresh_images))])
     else:
         thresh_images = load_images(os.path.join(OUTPUT_FOLDER, 'threshold'), gray=True)
@@ -132,7 +132,7 @@ def prepare(recreate=False):
 def process(camera, warper, s):
     def _process(img):
         img = camera.undistort(img)
-        thresh = color.ColorThreshold.do_thresholding(img)
+        thresh = color.ColorThreshold.threshold(img)
         warped = warper.warp(thresh)
         funcs = s.search(warped)
         lane.draw_lane(img, *funcs, warper)
@@ -146,15 +146,14 @@ if __name__ == '__main__':
     warper = Warper()
 
     for i, img in enumerate(warped_binaries[:14]):
-        print('Searching for lanes in image {}...'.format(i))
+        print('>>> Searching for lanes in image {}...'.format(i))
         s = lane.LaneSearch(window_count=9, window_width=100)
         s.search(img, draw=True)
         save_images([s.draw_image], 'draw', ['draw_{:02d}.jpg'.format(i)])
 
     #s = lane.LaneSearch(window_count=9, window_width=100)
     #clip = VideoFileClip('project_video.mp4')
+    #clip = clip.subclip(t_start=37, t_end=45)
     #M, Minv = get_matrices()
     #result = clip.fl_image(process(camera, warper, s,))
     #result.write_videofile('out.mp4', audio=False)
-
-

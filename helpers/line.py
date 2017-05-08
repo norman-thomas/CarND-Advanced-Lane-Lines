@@ -10,16 +10,8 @@ class Line():
     def __init__(self, n_history=50):
         # was the line detected in the last iteration?
         self.detected = False
-        # x values of the last n fits of the line
-        self.recent_xfitted = []
         #average x values of the fitted line over the last n iterations
         self.bestx = None
-        #polynomial coefficients averaged over the last n iterations
-        self.best_fit = None
-        #polynomial coefficients for the most recent fit
-        self.current_fit = None
-        #difference in fit coefficients between last and new fits
-        self.diffs = np.array([0, 0, 0], dtype='float')
         #x values for detected line pixels
         self.allx = None
         #y values for detected line pixels
@@ -38,7 +30,7 @@ class Line():
     @property
     def last_fit(self):
         best = list(filter(lambda h: h[0], self.history))
-        return best[-1][0] if len(best) > 0 else None
+        return best[-1][1] if len(best) > 0 else None
 
     @property
     def best_fit(self):
@@ -86,13 +78,13 @@ class Line():
 
     def accept_fit(self, coeffs):
         self.detected = True
-        self.coeff_diffs = self.coeffs - coeffs
+        self.coeff_diffs = coeffs - self.coeffs if len(self.coeffs) == 3 else coeffs
         self.coeffs = coeffs.copy()
         self.history.append((True, coeffs))
 
     def reject_fit(self, coeffs):
         self.detected = False
-        self.coeff_diffs = self.coeffs - coeffs
+        self.coeff_diffs = coeffs - self.coeffs if len(self.coeffs) == 3 else coeffs
         self.coeffs = coeffs.copy()
         self.history.append((False, coeffs))
 
