@@ -16,6 +16,7 @@ from helpers.warp import Warper
 import helpers.sobel as sobel
 import helpers.color as color
 import helpers.line as line
+import helpers.lane as lane
 import helpers.utils as utils
 
 OUTPUT_FOLDER = 'output_images'
@@ -83,8 +84,8 @@ def apply_roi(image):
     cv2.fillPoly(mask, points, white)
     return cv2.bitwise_and(image, mask)
 
-PICKLE = 'temp.p'
 def prepare(recreate=False):
+    PICKLE = 'temp.p'
     camera = None
     if recreate or not os.path.exists(PICKLE):
         print('Calibrating camera...')
@@ -134,7 +135,7 @@ def process(camera, warper, s):
         thresh = color.ColorThreshold.do_thresholding(img)
         warped = warper.warp(thresh)
         funcs = s.search(warped)
-        line.draw_lane(img, *funcs, warper)
+        lane.draw_lane(img, *funcs, warper)
         return img
     return _process
 
@@ -146,11 +147,11 @@ if __name__ == '__main__':
 
     for i, img in enumerate(warped_binaries[:14]):
         print('Searching for lanes in image {}...'.format(i))
-        s = line.LaneSearch(window_count=9, window_width=100)
+        s = lane.LaneSearch(window_count=9, window_width=100)
         s.search(img, draw=True)
         save_images([s.draw_image], 'draw', ['draw_{:02d}.jpg'.format(i)])
 
-    #s = line.LaneSearch(window_count=9, window_width=100)
+    #s = lane.LaneSearch(window_count=9, window_width=100)
     #clip = VideoFileClip('project_video.mp4')
     #M, Minv = get_matrices()
     #result = clip.fl_image(process(camera, warper, s,))

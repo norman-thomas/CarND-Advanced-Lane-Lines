@@ -54,6 +54,22 @@ class ColorThreshold:
         raise Exception('abstract class')
 
     @classmethod
+    def is_yellow(cls, img):
+        lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
+        low_yellow = np.array([0, 0, 0])
+        high_yellow = np.array([0, 0, 0])
+        mask = cv2.inRange(lab, low_yellow, high_yellow)
+        return mask
+
+    @classmethod
+    def is_white(cls, img):
+        hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+        low_white = np.array([0, 0, 0])
+        high_white = np.array([0, 0, 0])
+        mask = cv2.inRange(hsv, low_white, high_white)
+        return mask
+
+    @classmethod
     def do_thresholding(cls, image):
         hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
         sunny_pixels, bright_pixels, mean = cls._detect_brightness(hls[:, :, 2])

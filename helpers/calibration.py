@@ -6,7 +6,7 @@ class Camera:
         self.M = m
         self.dist = dist
         self._chessboards = []
-    
+
     @staticmethod
     def _chessboard(img, dims=(9, 6), draw=False):
         gray = img
@@ -28,7 +28,7 @@ class Camera:
             if ret:
                 imgpoints.append(corners)
 
-        objp = np.zeros((np.prod(dims), 3), np.float32)
+        objp = np.zeros((np.prod(dims), 3), np.float)
         objp[:, :2] = np.mgrid[0:dims[0], 0:dims[1]].T.reshape(-1, 2)
         objpoints = [objp] * len(imgpoints) # same length required by OpenCV
 

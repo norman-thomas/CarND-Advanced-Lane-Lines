@@ -8,17 +8,17 @@ class Warper:
 
     @property
     def source_points(self):
-        return np.float32((
+        return np.array([
             (230, 700), (1075, 700), (693, 455), (588, 455)
-        ))
+        ], np.float32)
 
     @property
     def destination_points(self):
         offset = 100
         x1, x2 = 640 - offset, 640 + offset
-        return np.float32((
+        return np.array([
             (x1, 720), (x2, 720), (x2, 0), (x1, 0)
-        ))
+        ], np.float32)
 
     @property
     def M(self):
