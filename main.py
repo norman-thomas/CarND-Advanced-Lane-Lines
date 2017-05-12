@@ -15,7 +15,6 @@ from helpers.calibration import Camera
 from helpers.warp import Warper
 import helpers.sobel as sobel
 import helpers.color as color
-import helpers.line as line
 import helpers.lane as lane
 import helpers.utils as utils
 
@@ -135,7 +134,8 @@ def process(camera, warper, s):
         thresh = color.ColorThreshold.threshold(img)
         warped = warper.warp(thresh)
         funcs = s.search(warped)
-        lane.draw_lane(img, *funcs, warper)
+        if funcs is not None:
+            s.draw_lane(img, *funcs, warper)
         return img
     return _process
 
@@ -147,9 +147,11 @@ if __name__ == '__main__':
 
     for i, img in enumerate(warped_binaries[:14]):
         print('>>> Searching for lanes in image {}...'.format(i))
-        s = lane.LaneSearch(window_count=9, window_width=100)
+        s = lane.LaneSearch(window_count=9, window_width=50)
         s.search(img, draw=True)
         save_images([s.draw_image], 'draw', ['draw_{:02d}.jpg'.format(i)])
+        hud = s.draw_lane(images[i], warper)
+        save_images([hud], 'hud', ['hud_{:02d}.jpg'.format(i)])
 
     #s = lane.LaneSearch(window_count=9, window_width=100)
     #clip = VideoFileClip('project_video.mp4')

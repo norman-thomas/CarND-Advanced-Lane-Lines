@@ -8,7 +8,7 @@ from .color import histogram, find_maximum
 from .line import Line
 
 class LaneSearch:
-    def __init__(self, window_count=9, window_width=100, initial_fraction=4):
+    def __init__(self, window_count=12, window_width=100, initial_fraction=4):
         self._image = None
         self._draw_image = None
         self._initial_fraction = initial_fraction
@@ -43,7 +43,7 @@ class LaneSearch:
 
     @property
     def lane_distance(self):
-        return 725
+        return 400
 
     def search(self, frame, history=None, draw=False):
         self._image = frame
@@ -109,8 +109,8 @@ class LaneSearch:
         margin = 250
         midpoint = len(hist)//2
         left, right = from_x + find_maximum(hist[margin:midpoint]) + margin, from_x + find_maximum(hist[midpoint:width-margin]) + midpoint
-        left_centroids = [(left, height)]
-        right_centroids = [(right, height)]
+        left_centroids = []
+        right_centroids = []
 
         previous_left = left
         previous_right = right
@@ -118,18 +118,19 @@ class LaneSearch:
             _draw_rectangle(previous_left, height - self.window_height, to_y)
             _draw_rectangle(previous_right, height - self.window_height, to_y)
 
+        first_row = True
         left_skipped = 0
         right_skipped = 0
         dy = self.window_height//2
-        for row in range(1, self.window_count):
+        for row in range(0, self.window_count):
             from_ = height - (row+1) * self.window_height
             to_ = height - row * self.window_height
             center_height = int(height - (row + 0.5) * self.window_height)
 
-            margin = 30
+            margin = 50 if not first_row else 100
             left_margin = margin * 1.1**left_skipped
             right_margin = margin * 1.1**right_skipped
-            print('ROW:', row)
+
             l, r = _convolve(from_, to_, previous_left, previous_right, left_margin, right_margin)
 
             if _is_tolerable(l, previous_left, left_skipped):
@@ -145,6 +146,9 @@ class LaneSearch:
                 right_centroids.append((r, center_height))
             else:
                 right_skipped += 1
+
+            if (right_skipped + left_skipped) < 2:
+                first_row = False
 
             if draw:
                 delta = _tolerance(left_skipped, margin)
@@ -213,9 +217,11 @@ class LaneSearch:
             confidence *= 0.7
 
         al, ar = left_coeffs[0], right_coeffs[0]
-        al = math.log10(abs(al))
-        ar = math.log10(abs(ar))
-        if not (0.75 < al / ar < 1.25):
+        #print('al = {}, ar = {}'.format(al, ar))
+        a_diff = abs(al - ar)
+        a_diff = math.log10(a_diff) if a_diff > 0.0 else -math.inf
+        #print('a_diff = {}'.format(a_diff))
+        if a_diff > 0.0:
             confidence *= 0.8
 
         if confidence < 0.7:
@@ -234,41 +240,45 @@ class LaneSearch:
         return np.polyfit(ys, xs, 2)
 
     def _search_smart(self, draw=False):
+        last_left, last_right = self.left.last_fit, self.right.last_fit
+        if last_left is None or last_right is None:
+            return None
+
         return None
 
 
-def draw_lane(image, func_left, func_right, warper):
-    ys = np.linspace(0, image.shape[0]-1, image.shape[0]//2)
-    xls = np.array([func_left(y) for y in ys])
-    xrs = np.array([func_right(y) for y in ys])
-    xms = (xrs + xls) / 2
+    def draw_lane(self, image, warper):
+        last_left = self.left.last_fit
+        last_right = self.right.last_fit
+        if last_left is None or last_right is None:
+            return image
 
-    warp_zero = np.zeros_like(image).astype(np.uint8)
-    color_warp = warp_zero.copy()
-    pts_left = np.array([np.transpose(np.vstack([xls, ys]))])
-    pts_right = np.array([np.flipud(np.transpose(np.vstack([xrs, ys])))])
-    pts = np.hstack((pts_left, pts_right))
+        func_left = Line.create_function(*last_left)
+        func_right = Line.create_function(*last_right)
 
-    cv2.polylines(color_warp, np.int_([pts]), isClosed=False, color=(0,0,255), thickness = 20)
-    cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
+        ys = np.linspace(0, image.shape[0]-1, image.shape[0]//2)
+        xls = np.array([func_left(y) for y in ys])
+        xrs = np.array([func_right(y) for y in ys])
+        xms = (xrs + xls) / 2
 
-    newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0]))
-    result = cv2.addWeighted(image, 1, newwarp, 0.3, 0)
+        warp_zero = np.zeros_like(image, dtype=np.uint8)
+        color_warp = warp_zero.copy()
+        pts_left = np.array([np.transpose(np.vstack([xls, ys]))])
+        pts_right = np.array([np.flipud(np.transpose(np.vstack([xrs, ys])))])
+        pts = np.hstack((pts_left, pts_right))
 
-    color_warp = warp_zero.copy()
-    pts_center = np.array([np.transpose(np.vstack([xms, ys]))])
-    cv2.polylines(color_warp, np.int_([pts_center]), isClosed=False, color=(0,255,255), thickness = 5)
+        cv2.polylines(color_warp, np.int_([pts]), isClosed=False, color=(0,0,255), thickness = 20)
+        cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
 
-    newwarp = warper.unwarp(color_warp)
-    result = cv2.addWeighted(result, 1, newwarp, 0.5, 0)
+        newwarp = warper.unwarp(color_warp)
+        result = cv2.addWeighted(image, 1, newwarp, 0.3, 0)
 
-    return result
+        color_warp = warp_zero.copy()
+        pts_center = np.array([np.transpose(np.vstack([xms, ys]))])
+        cv2.polylines(color_warp, np.int_([pts_center]), isClosed=False, color=(0,255,255), thickness = 5)
 
+        newwarp = warper.unwarp(color_warp)
+        result = cv2.addWeighted(result, 1, newwarp, 0.5, 0)
 
-def process(M, Minv):
-    def _preprocess(img):
-        warped_binary = None
-        s = LaneSearch(window_count=8, window_width=150)
-        funcs = s.search(warped_binary)
-        return draw_image(img, funcs[0], funcs[1], Minv)
-    pass
+        return result
+

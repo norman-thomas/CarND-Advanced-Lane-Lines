@@ -7,7 +7,7 @@ from collections import namedtuple, deque
 from scipy.optimize import curve_fit
 
 class Line():
-    def __init__(self, n_history=50):
+    def __init__(self, coeffs=None, n_history=50):
         # was the line detected in the last iteration?
         self.detected = False
         #average x values of the fitted line over the last n iterations
@@ -17,7 +17,7 @@ class Line():
         #y values for detected line pixels
         self.ally = None
 
-        self.coeffs = np.array([])
+        self.coeffs = coeffs if coeffs is not None else np.array([])
         # history of last n_history quadratic functions
         self.history = deque([], n_history)
         #difference in fit coefficients between last and new fits
@@ -33,22 +33,13 @@ class Line():
         return best[-1][1] if len(best) > 0 else None
 
     @property
-    def best_fit(self):
+    def average_fit(self):
         best = list(filter(lambda h: h[0], self.history))
         if len(best) == 0:
             return None
         weights = np.exp(np.linspace(-1, 0, len(best)))
         #weights /= weights.sum()
         coeffs = np.array([h[1] for h in best])
-        avg = np.average(coeffs, weights=weights, axis=0)
-        return avg
-
-    @property
-    def average_fit(self):
-        if len(self.history) == 0:
-            return None
-        weights = np.exp(np.linspace(-1, 0, len(self.history)))
-        coeffs = np.array([h[1] for h in self.history])
         avg = np.average(coeffs, weights=weights, axis=0)
         return avg
 
@@ -84,8 +75,9 @@ class Line():
 
     def reject_fit(self, coeffs):
         self.detected = False
-        self.coeff_diffs = coeffs - self.coeffs if len(self.coeffs) == 3 else coeffs
-        self.coeffs = coeffs.copy()
+        if coeffs is not None:
+            self.coeff_diffs = coeffs - self.coeffs if len(self.coeffs) == 3 else coeffs
+            self.coeffs = coeffs.copy()
         self.history.append((False, coeffs))
 
     def _find_last_detected(self):
