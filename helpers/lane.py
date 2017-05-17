@@ -72,21 +72,22 @@ class LaneSearch:
             p1x = max(lim_left, x - delta)
             p2x = min(x + delta, lim_right)
             color = (255, 0, 0) if not found else (0, 255, 0)
-            p1x, p2x = int(x-delta), int(x+delta) # TODO ?
             cv2.rectangle(self._draw_image, (p1x, y_from), (p2x, y_to), color=color, thickness=2)
 
         def _convolve(y1, y2, prev_l, prev_r, l_skipped, r_skipped, first_row=False):
+            limit = 150
             height, width = self.image.shape
+            left_limit, right_limit = limit, width - limit
             s = np.sum(self.image[y1:y2, :], axis=0)
 
-            def _conv(prev_x, skipped):
+            def _conv(prev_x: int, skipped: int):
                 window_width = _margin(skipped, first_row=first_row)
                 surrounding = window_width // 5
                 window = np.ones(window_width)
                 window[window_width // 2 - 2 * surrounding:window_width // 2 + 2 * surrounding] = 2
                 window[window_width // 2 - surrounding:window_width // 2 + surrounding] = 4
-                min_index = max(0, prev_x - window_width)
-                max_index = min(width, prev_x + window_width)
+                min_index = max(left_limit, prev_x - window_width)
+                max_index = min(right_limit, prev_x + window_width)
                 c = np.convolve(window, s[min_index:max_index])
                 c = c[window_width//2:-window_width//2]
                 center = find_maximum(c)
