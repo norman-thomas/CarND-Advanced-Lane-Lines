@@ -8,7 +8,7 @@ from .color import histogram, find_maximum
 from .line import Line
 
 class LaneSearch:
-    def __init__(self, window_count=12, window_width=100, initial_fraction=4):
+    def __init__(self, window_count=12, window_width=60, initial_fraction=4):
         self._image = None
         self._draw_image = None
         self._window_count = window_count
@@ -56,14 +56,17 @@ class LaneSearch:
         return result
 
     def _search_dumb(self, draw=False):
-        def _is_tolerable(val, previous_val, skipped):
-            return val is not None and abs(val - previous_val) <= _tolerance(skipped)
+        def _is_tolerable(val, previous_val, skipped=0):
+            return val is not None and abs(val - previous_val) <= _margin(skipped)
 
-        def _tolerance(skipped=0, margin=None):
-            return (self._window_width//2 if margin is None else margin) * 1.2**skipped
+        def _margin(skipped=0, first_row=False):
+            if first_row:
+                return 2 * self._window_width
+            return int(self._window_width * 1.2**skipped)
 
-        def _draw_rectangle(x, y_from, y_to, found=True, delta=None):
-            delta = delta if delta is not None else _tolerance()
+        def _draw_rectangle(x, y_from, y_to, skipped=0, first_row=False):
+            found = skipped == 0
+            delta = _margin(skipped, first_row)
             lim_left = 0 if x < self.image.shape[1]//2 else self.image.shape[1]//2
             lim_right = self.image.shape[1]//2 if x < self.image.shape[1]//2 else self.image.shape[1]
             p1x = max(lim_left, x - delta)
@@ -72,30 +75,27 @@ class LaneSearch:
             p1x, p2x = int(x-delta), int(x+delta) # TODO ?
             cv2.rectangle(self._draw_image, (p1x, y_from), (p2x, y_to), color=color, thickness=2)
 
-        def _convolve(y1, y2, prev_l, prev_r, l_margin, r_margin):
+        def _convolve(y1, y2, prev_l, prev_r, l_skipped, r_skipped, first_row=False):
             height, width = self.image.shape
-            offset = self._window_width//2
             s = np.sum(self.image[y1:y2, :], axis=0)
-            window = np.ones(self._window_width)
-            surrounding = self._window_width // 5
-            window[self._window_width//2-2*surrounding:self._window_width//2+2*surrounding] = 2
-            window[self._window_width//2-surrounding:self._window_width//2+surrounding] = 4
-            conv = np.convolve(window, s)
 
-            l_min_index = int(max(prev_l-offset-l_margin, 0))
-            l_max_index = int(min(prev_l+offset+l_margin, width))
-            conv_win = conv[l_min_index:l_max_index]
-            l_center = find_maximum(conv_win)
-            l_center = l_center + l_min_index - offset if conv_win[l_center] > self._threshold else None
+            def _conv(prev_x, skipped):
+                window_width = _margin(skipped, first_row=first_row)
+                surrounding = window_width // 5
+                window = np.ones(window_width)
+                window[window_width // 2 - 2 * surrounding:window_width // 2 + 2 * surrounding] = 2
+                window[window_width // 2 - surrounding:window_width // 2 + surrounding] = 4
+                min_index = max(0, prev_x - window_width)
+                max_index = min(width, prev_x + window_width)
+                c = np.convolve(window, s[min_index:max_index])
+                c = c[window_width//2:-window_width//2]
+                center = find_maximum(c)
+                return center + min_index if c[center] > self._threshold else None
 
-            r_min_index = int(max(prev_r-offset-r_margin, 0))
-            r_max_index = int(min(prev_r+offset+r_margin, width))
-            conv_win = conv[r_min_index:r_max_index]
-            r_center = find_maximum(conv_win)
-            r_center = r_center + r_min_index - offset if conv_win[r_center] > self._threshold else None
+            l_center = _conv(prev_l, l_skipped)
+            r_center = _conv(prev_r, r_skipped)
 
             return l_center, r_center
-
 
         height, width = self.image.shape
         from_y = height - (height // self._initial_fraction)
@@ -115,17 +115,12 @@ class LaneSearch:
         first_row = True
         left_skipped = 0
         right_skipped = 0
-        dy = self.window_height//2
         for row in range(0, self.window_count):
             from_ = height - (row+1) * self.window_height
             to_ = height - row * self.window_height
             center_height = int(height - (row + 0.5) * self.window_height)
 
-            margin = 60 if not first_row else 120
-            left_margin = _tolerance(left_skipped, margin)
-            right_margin = _tolerance(right_skipped, margin)
-
-            l, r = _convolve(from_, to_, previous_left, previous_right, left_margin, right_margin)
+            l, r = _convolve(from_, to_, previous_left, previous_right, left_skipped, right_skipped, first_row=first_row)
 
             if _is_tolerable(l, previous_left, left_skipped):
                 left_skipped = 0
@@ -145,8 +140,8 @@ class LaneSearch:
                 first_row = False
 
             if draw:
-                _draw_rectangle(previous_left, from_, to_, left_skipped == 0, delta=left_margin)
-                _draw_rectangle(previous_right, from_, to_, right_skipped == 0, delta=right_margin)
+                _draw_rectangle(previous_left, from_, to_, left_skipped, first_row=first_row)
+                _draw_rectangle(previous_right, from_, to_, right_skipped, first_row=first_row)
 
         left_centroids = np.array(left_centroids)
         right_centroids = np.array(right_centroids)

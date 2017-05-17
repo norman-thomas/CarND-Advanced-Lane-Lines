@@ -147,7 +147,7 @@ if __name__ == '__main__':
 
     for i, img in enumerate(warped_binaries[:14]):
         print('>>> Searching for lanes in image {}...'.format(i))
-        s = lane.LaneSearch(window_count=9, window_width=50)
+        s = lane.LaneSearch(window_count=15)
         s.search(img, draw=True)
         save_images([s.draw_image], 'draw', ['draw_{:02d}.jpg'.format(i)])
         hud = s.draw_lane(images[i], warper)
