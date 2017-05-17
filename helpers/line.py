@@ -64,7 +64,7 @@ class Line():
         xs = [p[0] for p in centroids]
         ys = [p[1] for p in centroids]
         coeffs = self._fit_function(xs, ys)
-        #coeffs = _transform_quadratic(*coeffs) if func is not None else None
+        #coeffs = _transform_quadratic(*coeffs) if coeffs is not None else None
         return np.array(coeffs)
 
     def accept_fit(self, coeffs):

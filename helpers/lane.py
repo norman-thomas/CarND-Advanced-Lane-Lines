@@ -41,7 +41,7 @@ class LaneSearch:
 
     @property
     def lane_distance(self):
-        return 400
+        return 320
 
     def search(self, frame, history=None, draw=False):
         self._image = frame
@@ -199,17 +199,21 @@ class LaneSearch:
 
         confidence = 1.0
 
+        tolerance_factor = 1.2
         distance = right_x0 - left_x0
-        if distance > 850 or distance < 700:
+        if distance > self.lane_distance * tolerance_factor or distance < self.lane_distance / tolerance_factor:
             confidence *= 0.7
 
         al, ar = left_coeffs[0], right_coeffs[0]
-        #print('al = {}, ar = {}'.format(al, ar))
         a_diff = abs(al - ar)
         a_diff = math.log10(a_diff) if a_diff > 0.0 else -math.inf
-        #print('a_diff = {}'.format(a_diff))
+        #print('al = {}, ar = {}, a_diff = {}'.format(al, ar, math.log10(abs(al/ar))))
         if a_diff > 0.0:
             confidence *= 0.8
+        #elif a_diff < 0.0:
+        #    new_a = (len(left_centroids) * al + len(right_centroids) * ar) / (len(left_centroids) + len(right_centroids))
+        #    result_left[0] = new_a
+        #    result_right[0] = new_a
 
         if confidence < 0.7:
             # TODO: maybe use last confident right line instead?
