@@ -11,12 +11,10 @@ class LaneSearch:
     def __init__(self, window_count=12, window_width=100, initial_fraction=4):
         self._image = None
         self._draw_image = None
-        self._initial_fraction = initial_fraction
         self._window_count = window_count
         self._window_width = window_width
-        self._history = []
-        self._threshold = 300
-        self._count = 0
+        self._initial_fraction = initial_fraction
+        self._threshold = 100
 
         self.left = Line()
         self.right = Line()
@@ -61,11 +59,11 @@ class LaneSearch:
         def _is_tolerable(val, previous_val, skipped):
             return val is not None and abs(val - previous_val) <= _tolerance(skipped)
 
-        def _tolerance(skipped, margin=None):
-            return (self._window_width//2 if margin is None else margin) * 1.1**skipped
+        def _tolerance(skipped=0, margin=None):
+            return (self._window_width//2 if margin is None else margin) * 1.2**skipped
 
         def _draw_rectangle(x, y_from, y_to, found=True, delta=None):
-            delta = delta if delta is not None else self._window_width//2
+            delta = delta if delta is not None else _tolerance()
             lim_left = 0 if x < self.image.shape[1]//2 else self.image.shape[1]//2
             lim_right = self.image.shape[1]//2 if x < self.image.shape[1]//2 else self.image.shape[1]
             p1x = max(lim_left, x - delta)
@@ -102,8 +100,7 @@ class LaneSearch:
         height, width = self.image.shape
         from_y = height - (height // self._initial_fraction)
         to_y = height
-        offset = width//2 # 130?
-        from_x, to_x = width//2 - offset, width//2 + offset
+        from_x, to_x = 0, width
         snip = self.image[from_y:to_y, from_x:to_x]
         hist = histogram(snip)
         margin = 250
@@ -114,9 +111,6 @@ class LaneSearch:
 
         previous_left = left
         previous_right = right
-        if draw:
-            _draw_rectangle(previous_left, height - self.window_height, to_y)
-            _draw_rectangle(previous_right, height - self.window_height, to_y)
 
         first_row = True
         left_skipped = 0
@@ -127,9 +121,9 @@ class LaneSearch:
             to_ = height - row * self.window_height
             center_height = int(height - (row + 0.5) * self.window_height)
 
-            margin = 50 if not first_row else 100
-            left_margin = margin * 1.1**left_skipped
-            right_margin = margin * 1.1**right_skipped
+            margin = 60 if not first_row else 120
+            left_margin = _tolerance(left_skipped, margin)
+            right_margin = _tolerance(right_skipped, margin)
 
             l, r = _convolve(from_, to_, previous_left, previous_right, left_margin, right_margin)
 
@@ -151,10 +145,8 @@ class LaneSearch:
                 first_row = False
 
             if draw:
-                delta = _tolerance(left_skipped, margin)
-                _draw_rectangle(previous_left, from_, to_, left_skipped == 0, delta=delta)
-                delta = _tolerance(right_skipped, margin)
-                _draw_rectangle(previous_right, from_, to_, right_skipped == 0, delta=delta)
+                _draw_rectangle(previous_left, from_, to_, left_skipped == 0, delta=left_margin)
+                _draw_rectangle(previous_right, from_, to_, right_skipped == 0, delta=right_margin)
 
         left_centroids = np.array(left_centroids)
         right_centroids = np.array(right_centroids)
@@ -177,7 +169,6 @@ class LaneSearch:
         else:
             self.right.reject_fit(right_coeffs)
 
-        self._count += 1
         return self.left, self.right
 
     def _sanity_check_and_fix(self, left_coeffs, right_coeffs, left_centroids, right_centroids, y=720):
