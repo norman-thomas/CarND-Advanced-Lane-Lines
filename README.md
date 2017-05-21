@@ -15,6 +15,11 @@ The goals / steps of this project are the following:
 
 [//]: # (Image References)
 
+
+[calibration1]: ./camera_cal/calibration11.jpg "Distorted"
+[calibration2]: ./output_images/camera_chessboard/chessboard_11.jpg "Chessboard"
+[calibration3]: ./output_images/camera_undistorted/undistorted_11.jpg "Undistorted"
+
 [image1]: ./examples/undistort_output.png "Undistorted"
 [image2]: ./test_images/test1.jpg "Road Transformed"
 [image3]: ./examples/binary_combo_example.jpg "Binary Example"
@@ -31,7 +36,11 @@ Here I will consider the rubric points individually and describe how I addressed
 
 ## Camera Calibration
 
-When taking images with a camera, the lens mapping the 3D world to a 2D image causes distortions. Distortions interfere with geometric calculations based on images. Therefore it is necessary to determine the lens' distortion in order to be able to neutralize it. To do that, i use the provided chessboard images taken with the camera used for the images and videos in this project. 
+When taking images with a camera, the lens mapping the 3D world to a 2D image causes distortions. Distortions interfere with geometric calculations based on images. Therefore it is necessary to determine the lens' distortion in order to be able to neutralize it. To do that, I use the provided chessboard images taken with the camera used for the images and videos in this project. My implementation of the chessboard detection and camera calibration is located in [helpers/calibration.py](helpers/calibration.py).
+
+![Original distorted image][calibration1]
+![Original image with chessboard][calibration2]
+![Undistorted image][calibration3]
 
 ### 1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
 
