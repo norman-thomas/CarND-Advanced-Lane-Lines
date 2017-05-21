@@ -38,7 +38,6 @@ class Line():
         if len(best) == 0:
             return None
         weights = np.exp(np.linspace(-1, 0, len(best)))
-        #weights /= weights.sum()
         coeffs = np.array([h[1] for h in best])
         avg = np.average(coeffs, weights=weights, axis=0)
         return avg
@@ -56,6 +55,10 @@ class Line():
         def _quadratic(x):
             return quadratic2(x, a, b, c)
         return _quadratic
+
+    @property
+    def function(self):
+        return self.create_function(*self.coeffs)
 
     def fit(self, centroids):
         if len(centroids) < 3:

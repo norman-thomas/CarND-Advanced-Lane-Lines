@@ -192,8 +192,8 @@ class LaneSearch:
             return None, None
 
         result_left, result_right = left_coeffs.copy(), right_coeffs.copy()
-        left_func = self.left.create_function(*left_coeffs)
-        right_func = self.right.create_function(*right_coeffs)
+        left_func = Line.create_function(*left_coeffs)
+        right_func = Line.create_function(*right_coeffs)
         left_x0 = left_func(y)
         right_x0 = right_func(y)
 
@@ -207,7 +207,7 @@ class LaneSearch:
         al, ar = left_coeffs[0], right_coeffs[0]
         a_diff = abs(al - ar)
         a_diff = math.log10(a_diff) if a_diff > 0.0 else -math.inf
-        #print('al = {}, ar = {}, a_diff = {}, a_div = {}'.format(al, ar, a_diff, math.log10(abs(al/ar))))
+        print('al = {}, ar = {}, a_diff = {}, a_div = {}'.format(al, ar, a_diff, math.log10(abs(al/ar))))
         if a_diff > 0.0:
             confidence *= 0.8
         #elif a_diff < 0.0:

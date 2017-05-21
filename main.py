@@ -143,10 +143,10 @@ def process(camera, warper, s):
 
 def main_image():
     camera = prepare()
-    images, warped_binaries = prepare_images(camera)
+    images, warped_binaries = prepare_images(camera, recreate=False)
     warper = Warper()
 
-    for i, img in enumerate(warped_binaries[:14]):
+    for i, img in enumerate(warped_binaries[:15]):
         print('>>> Searching for lanes in image {}...'.format(i))
         s = lane.LaneSearch(window_count=15)
         l, r = s.search(img, draw=True)
@@ -167,5 +167,5 @@ def main_video():
 
 
 if __name__ == '__main__':
-    #main_image()
-    main_video()
+    main_image()
+    #main_video()
