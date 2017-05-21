@@ -31,12 +31,14 @@ class Line():
 
     @property
     def average_fit(self):
-        found = np.array([(1 if h else 0) for h in self.history])
-        #best = list(filter(lambda h: h[0], self.history))
-        if found.sum() == 0:
-            return None
-        weights = np.exp(np.linspace(-100, 0, len(self.history))) * found
-        coeffs = np.array([h[1] for h in self.history])
+        best = list(filter(lambda h: h[0], self.history))
+        if len(best) < 2:
+            return self.last_fit
+        upper_limit = 3
+        max = upper_limit if len(best) >= upper_limit else len(best)
+        weights = np.array([2**i for i in range(max, 0, -1)])
+        weights = 1 / weights
+        coeffs = np.array([h[1] for h in best[-max:]])
         avg = np.average(coeffs, weights=weights, axis=0)
         return avg
 

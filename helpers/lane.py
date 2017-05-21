@@ -256,7 +256,7 @@ class LaneSearch:
         return False
 
     def _smart_sliding_window(self):
-        if self.left.last_fit is None or self.right.last_fit is None:
+        if not self.left.detected or not self.right.detected or self.left.last_fit is None or self.right.last_fit is None:
             return None
 
         binary_warped = self.image
@@ -521,8 +521,8 @@ class LaneSearch:
 
 
     def draw_lane(self, image, warper):
-        last_left = self.left.last_fit
-        last_right = self.right.last_fit
+        last_left = self.left.average_fit
+        last_right = self.right.average_fit
         if last_left is None or last_right is None:
             return image
 
