@@ -55,7 +55,8 @@ class ColorThreshold:
 
     @classmethod
     def threshold(cls, img):
-        return cls._simple_threnshold(img)
+        return cls._simple_threshold(img)
+        #return cls._do_thresholding(img)
 
     @classmethod
     def _other_threshold(cls, img):
@@ -84,7 +85,7 @@ class ColorThreshold:
         return mask
 
     @classmethod
-    def _simple_threnshold(cls, img):
+    def _simple_threshold(cls, img):
         hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
         hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
         lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)

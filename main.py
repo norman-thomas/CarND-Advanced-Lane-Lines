@@ -152,8 +152,8 @@ def main_video():
     warper = Warper()
     s = lane.LaneSearch(window_count=15)
     clip = VideoFileClip('project_video.mp4')
-    #clip = clip.subclip(t_start=39.5, t_end=42.5)
     clip = clip.subclip(t_start=38, t_end=43)
+    #clip = clip.subclip(t_start=35, t_end=44)
     result = clip.fl_image(process(camera, warper, s))
     result.write_videofile('out.mp4', audio=False)
 
