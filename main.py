@@ -1,13 +1,9 @@
 import os
-#import glob
 import pickle
 
 import numpy as np
 import cv2
 from moviepy.video.io.VideoFileClip import VideoFileClip
-
-import random
-import math
 
 import matplotlib.image as mpimg
 
@@ -89,7 +85,6 @@ def prepare(recreate=False):
     if recreate or not os.path.exists(PICKLE):
         print('Calibrating camera...')
         camera = calibrate_camera()
-        #undistort_images(chessboards, M, dist, 'camera_undistorted')
         print('Saving pickle with calibration info...')
         with open(PICKLE, 'wb') as f:
             pickle.dump((camera.M, camera.dist), f)

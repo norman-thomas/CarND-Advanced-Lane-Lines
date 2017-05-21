@@ -2,8 +2,6 @@ import numpy as np
 import cv2
 import math
 
-from collections import namedtuple, deque
-
 from .color import histogram, find_maximum
 from .line import Line
 

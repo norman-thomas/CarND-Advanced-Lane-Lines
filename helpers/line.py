@@ -1,9 +1,6 @@
 import numpy as np
-import cv2
-import math
-import matplotlib.pyplot as plt
 
-from collections import namedtuple, deque
+from collections import deque
 from scipy.optimize import curve_fit
 
 class Line():
