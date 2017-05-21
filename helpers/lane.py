@@ -267,16 +267,15 @@ class LaneSearch:
             y_eval = np.max(ploty)
 
             # Fit new polynomials to x,y in world space
-            left_fit_cr = np.polyfit(ploty * ym_per_pix, leftx * xm_per_pix, 2)
-            right_fit_cr = np.polyfit(ploty * ym_per_pix, rightx * xm_per_pix, 2)
+            left_fit_cr = np.polyfit(ploty * ym_per_pix, xls * xm_per_pix, 2)
+            right_fit_cr = np.polyfit(ploty * ym_per_pix, xrs * xm_per_pix, 2)
             # Calculate the new radii of curvature
             left_curverad = ((1 + (
-            2 * left_fit_cr[0] * y_eval * ym_per_pix + left_fit_cr[1]) ** 2) ** 1.5) / np.absolute(2 * left_fit_cr[0])
+                2 * left_fit_cr[0] * y_eval * ym_per_pix + left_fit_cr[1]) ** 2) ** 1.5) / np.absolute(2 * left_fit_cr[0])
             right_curverad = ((1 + (
-            2 * right_fit_cr[0] * y_eval * ym_per_pix + right_fit_cr[1]) ** 2) ** 1.5) / np.absolute(
+                2 * right_fit_cr[0] * y_eval * ym_per_pix + right_fit_cr[1]) ** 2) ** 1.5) / np.absolute(
                 2 * right_fit_cr[0])
-            # Now our radius of curvature is in meters
-            print(left_curverad, 'm', right_curverad, 'm')
+            return left_curverad, right_curverad
 
         warp_zero = np.zeros_like(image, dtype=np.uint8)
         color_warp = warp_zero.copy()
@@ -297,13 +296,14 @@ class LaneSearch:
         newwarp = warper.unwarp(color_warp)
         result = cv2.addWeighted(result, 1, newwarp, 0.5, 0)
 
-        left_curv, right_curv = 0, 0
-        curve_text = "Curvature: Left = {:.2f}m, Right = {:.2f}m".format(left_curv, right_curv)
+        left_curv, right_curv = curvature()
+        curv = (left_curv + right_curv) / 2
+        curve_text = "Curvature: {:.2f}m".format(curv)
         font = cv2.FONT_HERSHEY_SIMPLEX
         result = cv2.putText(result, curve_text, (20, 50), font, 1, (255, 255, 255), 2)
 
         off_center_pixels = off_center()
-        off_center_text = "Off center by {:.2f}m".format(off_center_pixels * xm_per_pix)
+        off_center_text = "Off center: {:.2f}m".format(off_center_pixels * xm_per_pix)
         result = cv2.putText(result, off_center_text, (20, 80), font, 1, (255, 255, 255), 2)
 
         return result
