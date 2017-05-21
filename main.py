@@ -96,7 +96,10 @@ def prepare(recreate=False):
     else:
         with open(PICKLE, 'rb') as f:
             M, dist = pickle.load(f)
+        camera = Camera(M, dist)
+    return camera
 
+def prepare_images(camera, recreate=False):
     images = None
     if recreate or not os.path.exists(os.path.join(OUTPUT_FOLDER, 'test_images_undistorted', 'undistorted_00.jpg')):
         print('Undistorting test images...')
@@ -105,7 +108,6 @@ def prepare(recreate=False):
     else:
         images = load_images(os.path.join(OUTPUT_FOLDER, 'test_images_undistorted'))
 
-    #images = [apply_roi(img) for img in images]
     thresh_images = None
     if recreate or not os.path.exists(os.path.join(OUTPUT_FOLDER, 'threshold', 'binary_00.jpg')):
         print('Looking for edges and applying color thresholds...')
@@ -126,7 +128,7 @@ def prepare(recreate=False):
     else:
         warped_binaries = load_images(os.path.join(OUTPUT_FOLDER, 'warped_binary'), gray=True)
 
-    return images, warped_binaries, M, dist
+    return images, warped_binaries
 
 def process(camera, warper, s):
     def _process(img):
@@ -135,14 +137,13 @@ def process(camera, warper, s):
         warped = warper.warp(thresh)
         funcs = s.search(warped)
         if funcs is not None:
-            s.draw_lane(img, *funcs, warper)
+            return s.draw_lane(img, warper)
         return img
     return _process
 
-
-if __name__ == '__main__':
-    images, warped_binaries, camera_M, camera_dist = prepare()
-    camera = Camera(camera_M, camera_dist)
+def main_image():
+    camera = prepare()
+    images, warped_binaries = prepare_images(camera)
     warper = Warper()
 
     for i, img in enumerate(warped_binaries[:14]):
@@ -155,9 +156,16 @@ if __name__ == '__main__':
         hud = s.draw_lane(images[i], warper)
         save_images([hud], 'hud', ['hud_{:02d}.jpg'.format(i)])
 
-    #s = lane.LaneSearch(window_count=9, window_width=100)
-    #clip = VideoFileClip('project_video.mp4')
-    #clip = clip.subclip(t_start=37, t_end=45)
-    #M, Minv = get_matrices()
-    #result = clip.fl_image(process(camera, warper, s,))
-    #result.write_videofile('out.mp4', audio=False)
+def main_video():
+    camera = prepare()
+    warper = Warper()
+    s = lane.LaneSearch(window_count=15)
+    clip = VideoFileClip('project_video.mp4')
+    clip = clip.subclip(t_start=39.5, t_end=42.5)
+    result = clip.fl_image(process(camera, warper, s))
+    result.write_videofile('out.mp4', audio=False)
+
+
+if __name__ == '__main__':
+    #main_image()
+    main_video()

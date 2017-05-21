@@ -207,7 +207,7 @@ class LaneSearch:
         al, ar = left_coeffs[0], right_coeffs[0]
         a_diff = abs(al - ar)
         a_diff = math.log10(a_diff) if a_diff > 0.0 else -math.inf
-        #print('al = {}, ar = {}, a_diff = {}'.format(al, ar, math.log10(abs(al/ar))))
+        #print('al = {}, ar = {}, a_diff = {}, a_div = {}'.format(al, ar, a_diff, math.log10(abs(al/ar))))
         if a_diff > 0.0:
             confidence *= 0.8
         #elif a_diff < 0.0:
