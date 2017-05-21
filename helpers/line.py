@@ -34,21 +34,13 @@ class Line():
         best = list(filter(lambda h: h[0], self.history))
         if len(best) < 2:
             return self.last_fit
-        upper_limit = 3
+        upper_limit = 10
         max = upper_limit if len(best) >= upper_limit else len(best)
-        weights = np.array([2**i for i in range(max, 0, -1)])
-        weights = 1 / weights
+        weights = np.array([1 for i in range(max, 0, -1)])
+        #weights = 1 / weights
         coeffs = np.array([h[1] for h in best[-max:]])
         avg = np.average(coeffs, weights=weights, axis=0)
         return avg
-
-    @property
-    def curvature(self):
-        return 0
-
-    @property
-    def offset(self):
-        return 0
 
     @staticmethod
     def create_function(a, b, c):
