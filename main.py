@@ -130,10 +130,8 @@ def process(camera, warper, s):
         img = camera.undistort(img)
         thresh = color.ColorThreshold.threshold(img)
         warped = warper.warp(thresh)
-        funcs = s.search(warped)
-        if funcs is not None:
-            return s.draw_lane(img, warper)
-        return img
+        s.search(warped)
+        return s.draw_lane(img, warper)
     return _process
 
 def main_image():
@@ -144,9 +142,7 @@ def main_image():
     for i, img in enumerate(warped_binaries[:15]):
         print('>>> Searching for lanes in image {}...'.format(i))
         s = lane.LaneSearch(window_count=15)
-        l, r = s.search(img, draw=True)
-        print('\t', i, 'left coeffs:', l.coeffs)
-        print('\t', i, 'right coeffs:', r.coeffs)
+        s.search(img)
         save_images([s.draw_image], 'draw', ['draw_{:02d}.jpg'.format(i)])
         hud = s.draw_lane(images[i], warper)
         save_images([hud], 'hud', ['hud_{:02d}.jpg'.format(i)])
@@ -156,11 +152,12 @@ def main_video():
     warper = Warper()
     s = lane.LaneSearch(window_count=15)
     clip = VideoFileClip('project_video.mp4')
-    clip = clip.subclip(t_start=39.5, t_end=42.5)
+    #clip = clip.subclip(t_start=39.5, t_end=42.5)
+    clip = clip.subclip(t_start=38, t_end=43)
     result = clip.fl_image(process(camera, warper, s))
     result.write_videofile('out.mp4', audio=False)
 
 
 if __name__ == '__main__':
-    main_image()
-    #main_video()
+    #main_image()
+    main_video()

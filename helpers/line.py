@@ -4,7 +4,7 @@ from collections import deque
 from scipy.optimize import curve_fit
 
 class Line():
-    def __init__(self, coeffs=None, n_history=50):
+    def __init__(self, coeffs=None, n_history=40):
         # was the line detected in the last iteration?
         self.detected = False
         #average x values of the fitted line over the last n iterations
@@ -31,11 +31,12 @@ class Line():
 
     @property
     def average_fit(self):
-        best = list(filter(lambda h: h[0], self.history))
-        if len(best) == 0:
+        found = np.array([(1 if h else 0) for h in self.history])
+        #best = list(filter(lambda h: h[0], self.history))
+        if found.sum() == 0:
             return None
-        weights = np.exp(np.linspace(-1, 0, len(best)))
-        coeffs = np.array([h[1] for h in best])
+        weights = np.exp(np.linspace(-100, 0, len(self.history))) * found
+        coeffs = np.array([h[1] for h in self.history])
         avg = np.average(coeffs, weights=weights, axis=0)
         return avg
 
