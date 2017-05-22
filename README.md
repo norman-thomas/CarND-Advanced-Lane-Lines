@@ -27,6 +27,9 @@ The goals / steps of this project are the following:
 
 [perspective]: ./output_images/perspective_transform.jpg "Perspective transform src and dst points"
 
+[sliding_window]: ./output_images/draw/draw_06.jpg "Detected lane pixels"
+[hud]: ./output_images/hud/hud_06.jpg "Lane drawn onto original image"
+
 
 ### [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
 
@@ -58,7 +61,7 @@ Here's an example of the above distortion correction being applied to a road ima
 
 ### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
 
-I tried out several color thresholds and Sobel filters as well as combinations of both. All implementations I tried can be found in [helpers/color.py, line 52 and following](helpers/color.py#L52). It seemed that pure color thresholds yield more reliable results as edge detection often detects edges irrelevant to lane finding and therefore confuses the algorithm during further processing. I chose to use the color spaces HLS, HSV and Lab for color thresholding. The final implementation is called via [`ColorThreshold.threshold(...)`](helpers/color.py#L57), which in turn ends up calling [`ColorThreshold._simple_threshold(...)`](helpers/color.py#L88).
+I tried out several color thresholds and Sobel filters as well as combinations of both. All implementations I tried can be found in [helpers/color.py, line 52 and following](helpers/color.py#L52). It seemed that pure color thresholds yield more reliable results as edge detection often detects edges irrelevant to lane finding and therefore confuses the algorithm during further processing. I chose to use the color spaces HLS, HSV and Lab for color thresholding. The final implementation is called via [`ColorThreshold.threshold(...)`](helpers/color.py#L57), which in turn ends up calling [`ColorThreshold._do_thresholding(...)`](helpers/color.py#L102).
 
 | Undistorted image | Thresholded image |
 |:---:|:---:|
@@ -104,7 +107,7 @@ I verified that my perspective transform was working as expected by drawing the 
 
 Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
 
-![alt text][image5]
+![Sliding window][sliding_window]
 
 ### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
