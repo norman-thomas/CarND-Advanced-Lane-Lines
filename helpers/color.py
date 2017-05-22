@@ -55,8 +55,8 @@ class ColorThreshold:
 
     @classmethod
     def threshold(cls, img):
-        return cls._simple_threshold(img)
-        #return cls._do_thresholding(img)
+        #return cls._simple_threshold(img)
+        return cls._do_thresholding(img)
 
     @classmethod
     def _other_threshold(cls, img):
