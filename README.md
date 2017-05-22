@@ -105,19 +105,26 @@ I verified that my perspective transform was working as expected by drawing the 
 
 ### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
+My implementation of the lane finding is inside the class `LaneSearch` of the module [`helpers/lane.py`](helpers/lane.py#L9) and in turn uses the custom data structure `Line` from [`helpers/line.py`](helpers/line.py#L6). The general approach of the lane detection is to construct a histogram of the lower part of the image. I chose to use the bottom quarter, rather than the bottom half. The histogram will have peaks on those x-coordinates where a lot of white pixels were detected. Those are the lane lines. Starting from those two x coordinates we start looking for lane lines with the sliding window approach, which was introduced in our lesson. The pixels identified as lane line pixels by the sliding window function ([`LaneSearch._sliding_window`](helpers/lane.py#L55)) are then used to fit a second degree polynomial ([`np.polyfit(...)`](helpers/lane.py#L130)), which results in a quadratic function, i.e. `f(y) = a * y^2 + b * y + c`. The function is a function of `y` instead of `x` because we also have perfectly straight and vertical lane lines, which would result in very large coefficients. In order to avoid that, the fitted function is calculated as function of `y`.
 
 ![Sliding window][sliding_window]
 
+
 ### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
-I did this in lines # through # in my code in `my_other_file.py`
+The curvature is calculated inside the sub-function [`curvature(...)`](helpers/lane.py#L265) as learned in the lesson. I calculate the radius at the bottom of the image, near the car. The curvature of the left and right lane lines are calculated separately. The average of both is then displayed.
+
+The position of the vehicle compared to the lane center is also calculated ([`off_center(...)`](helpers/lane.py#L262)) and displayed.
+
+For both metrics it is necessary to first convert the pixel measures to real-world measures in meters, which is done in [`LaneSearch.draw_lane, line 259-260`](helpers/lane.py#L259).
+
 
 ### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
+Finally, the function [`LaneSearch.draw_lane`](helpers/lane.py#L244) takes care of display all the acquired information back onto the original image as shown below.
 
-![alt text][image6]
+![Resulting image][hud]
+
 
 ---
 
@@ -125,7 +132,7 @@ I implemented this step in lines # through # in my code in `yet_another_file.py`
 
 ### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
 
-Here's a [link to my video result](./project_video.mp4)
+Here's a [link to my video result](./out.mp4)
 
 ---
 
