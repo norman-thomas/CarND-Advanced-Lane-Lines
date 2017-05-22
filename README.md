@@ -23,6 +23,9 @@ The goals / steps of this project are the following:
 [original1]: ./test_images/test1.jpg "Distorted"
 [undistorted1]: ./output_images/test_images_undistorted/undistorted_02.jpg "Undistorted"
 [threshold1]: ./output_images/threshold/binary_02.jpg "Thresholded"
+[warped1]: ./output_images/warped/warped_02.jpg "Thresholded"
+
+[perspective]: ./output_images/perspective_transform.jpg "Perspective transform src and dst points"
 
 
 ### [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
@@ -57,40 +60,45 @@ Here's an example of the above distortion correction being applied to a road ima
 
 I tried out several color thresholds and Sobel filters as well as combinations of both. All implementations I tried can be found in [helpers/color.py, line 52 and following](helpers/color.py#L52). It seemed that pure color thresholds yield more reliable results as edge detection often detects edges irrelevant to lane finding and therefore confuses the algorithm during further processing. I chose to use the color spaces HLS, HSV and Lab for color thresholding. The final implementation is called via [`ColorThreshold.threshold(...)`](helpers/color.py#L57), which in turn ends up calling [`ColorThreshold._simple_threshold(...)`](helpers/color.py#L88).
 
-
 | Undistorted image | Thresholded image |
 |:---:|:---:|
 | ![Undistorted image][undistorted1] | ![Thresholded image][threshold1] |
 
+
 ### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
-The code for my perspective transform includes a function called `warper()`, which appears in lines 1 through 8 in the file `example.py` (output_images/examples/example.py) (or, for example, in the 3rd code cell of the IPython notebook).  The `warper()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
+In order to determine the lane curvature, it is easier to use a birds eye view. To simulate that, we can use perspective transformation. I took one of the straight lane images from the test images and picked four source points below.
 
+[`helpers/warp.py, line 9-21`](helpers/warp.py#L9)
 ```python
-src = np.float32(
-    [[(img_size[0] / 2) - 55, img_size[1] / 2 + 100],
-    [((img_size[0] / 6) - 10), img_size[1]],
-    [(img_size[0] * 5 / 6) + 60, img_size[1]],
-    [(img_size[0] / 2 + 55), img_size[1] / 2 + 100]])
-dst = np.float32(
-    [[(img_size[0] / 4), 0],
-    [(img_size[0] / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), 0]])
+    @property
+    def source_points(self):
+        return np.array([
+            (230, 700), (1075, 700), (693, 455), (588, 455)
+        ], np.float32)
+
+    @property
+    def destination_points(self):
+        offset = 200
+        x1, x2 = 640 - offset, 640 + offset # 440, 840
+        return np.array([
+            (x1, 720), (x2, 720), (x2, 0), (x1, 0)
+        ], np.float32)
 ```
 
 This resulted in the following source and destination points:
 
 | Source        | Destination   | 
 |:-------------:|:-------------:| 
-| 585, 460      | 320, 0        | 
-| 203, 720      | 320, 720      |
-| 1127, 720     | 960, 720      |
-| 695, 460      | 960, 0        |
+| 230, 700      | 440, 720      | 
+| 1075, 700     | 840, 720      |
+| 693, 455      | 840, 0        |
+| 588, 455      | 440, 0        |
 
-I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
+I verified that my perspective transform was working as expected by drawing the source and destination points onto both straight lane line test images and its warped counterpart to verify that the lines appear parallel in the warped image.
 
-![alt text][image4]
+![Source and destination points][perspective]
+
 
 ### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
