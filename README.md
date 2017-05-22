@@ -140,5 +140,16 @@ Here's a [link to my video result](./out.mp4)
 
 ### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+I spent considerable amount of time trying to optimize the thresholding and every other step of the process independently. Experience taught me that it's better to get a working pipeline first and then start tweaking parameters, etc.
 
+I still think that my thresholding can be improved, especially for different lighting conditions. Often tweaking the thresholds for one video resulted in worsened results in another video. In the end I focussed on optimizing for the first video.
+
+As for the polynomial lane line fitting, it is not realistic to assume that a lane only bends one way. Especially with countryside roads, like in the harder challenge video, lanes can have `S` line shapes, which would be better represented with a 3rd order polynomial.
+
+Furthermore, very strong bends like in the harder challenge video, are difficult to find using the sliding windows, because the perspective transformed lines are partially horizontal. In the same harder challenge video it is also visible that in strong bends one line can end up completely outside the camera's view. Using two or three cameras could help mitigate this issue as well as potentially the next one.
+
+Another problem occurs when lane lines are partially covered by other vehicles, which significantly reduces the ability to detect those lines.
+
+Performance-wise, processing the videos took longer than their runtime. This means that the current algorithm can't be applied in real-time on my laptop.
+
+As we had a deep neural network drive around a simulator car racing track, I could imagine that a DNN approach to lane finding could also work well.
