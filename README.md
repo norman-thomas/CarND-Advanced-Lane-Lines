@@ -16,17 +16,14 @@ The goals / steps of this project are the following:
 [//]: # (Image References)
 
 
-[calibration1]: ./camera_cal/calibration11.jpg "Distorted"
+[calibration1]: ./camera_cal/calibration2.jpg "Distorted"
 [calibration2]: ./output_images/camera_chessboard/chessboard_11.jpg "Chessboard"
 [calibration3]: ./output_images/camera_undistorted/undistorted_11.jpg "Undistorted"
 
-[image1]: ./examples/undistort_output.png "Undistorted"
-[image2]: ./test_images/test1.jpg "Road Transformed"
-[image3]: ./examples/binary_combo_example.jpg "Binary Example"
-[image4]: ./examples/warped_straight_lines.jpg "Warp Example"
-[image5]: ./examples/color_fit_lines.jpg "Fit Visual"
-[image6]: ./examples/example_output.jpg "Output"
-[video1]: ./project_video.mp4 "Video"
+[original1]: ./test_images/test1.jpg "Distorted"
+[undistorted1]: ./output_images/test_images_undistorted/undistorted_02.jpg "Undistorted"
+[threshold1]: ./output_images/threshold/binary_02.jpg "Thresholded"
+
 
 ### [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
 
@@ -36,34 +33,34 @@ Here I will consider the rubric points individually and describe how I addressed
 
 ## Camera Calibration
 
-When taking images with a camera, the lens mapping the 3D world to a 2D image causes distortions. Distortions interfere with geometric calculations based on images. Therefore it is necessary to determine the lens' distortion in order to be able to neutralize it. To do that, I use the provided chessboard images taken with the camera used for the images and videos in this project. My implementation of the chessboard detection and camera calibration is located in [helpers/calibration.py](helpers/calibration.py).
-
-![Original distorted image][calibration1]
-![Original image with chessboard][calibration2]
-![Undistorted image][calibration3]
-
 ### 1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
 
-The code for this step is contained in the first code cell of the IPython notebook located in "./examples/example.ipynb" (or in lines # through # of the file called `some_file.py`).  
+When taking images with a camera, the lens mapping the 3D world to a 2D image causes distortions. Distortions interfere with geometric calculations based on images. Therefore it is necessary to determine the lens' distortion in order to be able to neutralize it. To do that, I use the provided chessboard images taken with the camera used for the images and videos in this project. My implementation of the chessboard detection and camera calibration is located in [helpers/calibration.py](helpers/calibration.py). It uses `cv2.findChessboardCorners(...)` to find the coordinates of chessboard intersections and calculateds the transformation matrix to undistort the image via `cv2.calibrateCamera(...)`. The resulting matrix is then used to apply `cv2.undistort(...)` and undistort an image.
 
-I start by preparing "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.  Thus, `objp` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  `imgpoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
+| Original out of camera image | Detected chessboard | Undistorted image |
+|:---:|:---:|:---:|
+| ![Original distorted image][calibration1] | ![Original image with chessboard][calibration2] | ![Undistorted image][calibration3] |
 
-I then used the output `objpoints` and `imgpoints` to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera()` function.  I applied this distortion correction to the test image using the `cv2.undistort()` function and obtained this result: 
-
-![alt text][image1]
 
 ## Pipeline (single images)
 
 ### 1. Provide an example of a distortion-corrected image.
 
-To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
-![alt text][image2]
+Here's an example of the above distortion correction being applied to a road image from the video:
+
+| Original image | Undistorted image |
+|:---:|:---:|
+| ![Original image][original1] | ![Undistorted image][undistorted1] |
+
 
 ### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
 
-I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
+I tried out several color thresholds and Sobel filters as well as combinations of both. All implementations I tried can be found in [helpers/color.py, line 52 and following](helpers/color.py#L52). It seemed that pure color thresholds yield more reliable results as edge detection often detects edges irrelevant to lane finding and therefore confuses the algorithm during further processing. I chose to use the color spaces HLS, HSV and Lab for color thresholding. The final implementation is called via [`ColorThreshold.threshold(...)`](helpers/color.py#L57), which in turn ends up calling [`ColorThreshold._simple_threshold(...)`](helpers/color.py#L88).
 
-![alt text][image3]
+
+| Undistorted image | Thresholded image |
+|:---:|:---:|
+| ![Undistorted image][undistorted1] | ![Thresholded image][threshold1] |
 
 ### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
